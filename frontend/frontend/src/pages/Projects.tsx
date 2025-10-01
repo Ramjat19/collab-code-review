@@ -11,6 +11,7 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({ name: "", description: "" });
   const [message, setMessage] = useState("");
+  const [collabEmail, setCollabEmail] = useState("");
 
   // Fetch all projects
   const fetchProjects = async () => {
@@ -43,6 +44,29 @@ export default function Projects() {
       setMessage("Failed to create project");
     }
   };
+
+    // Add collaborator function
+    const handleAddCollaborator = async (projectId: string) => {
+    try {
+        await API.post(`/projects/${projectId}/collaborators`, { email: collabEmail });
+        setMessage("Collaborator added!");
+        setCollabEmail("");
+        fetchProjects(); // refresh
+    } catch {
+        setMessage("Failed to add collaborator");
+    }
+    };
+
+    // Remove collaborator function
+    const handleRemoveCollaborator = async (projectId: string, userId: string) => {
+    try {
+        await API.delete(`/projects/${projectId}/collaborators/${userId}`);
+        setMessage("Collaborator removed!");
+        fetchProjects(); // refresh
+    } catch {
+        setMessage("Failed to remove collaborator");
+    }
+    };
 
   return (
     <div className="p-6">
@@ -77,9 +101,37 @@ export default function Projects() {
         <ul className="list-disc pl-5">
           {projects.map((p) => (
             <li key={p._id}>
-              <b>{p.name}</b>: {p.description}
-            </li>
-          ))}
+            <b>{p.name}</b>: {p.description}
+            <div className="mt-1 mb-2">
+                <input
+                placeholder="Collaborator Email"
+                value={collabEmail}
+                onChange={(e) => setCollabEmail(e.target.value)}
+                className="border p-1 mr-2"
+                />
+                <button
+                onClick={() => handleAddCollaborator(p._id)}
+                className="bg-green-500 text-white p-1"
+                >
+                Add
+                </button>
+            </div>
+            <div>
+                <b>Collaborators:</b>
+                {p.collaborators?.map((c: any) => (
+                    <span key={c._id} className="ml-2">
+                        {c.username} ({c.email})
+                        <button
+                        onClick={() => handleRemoveCollaborator(p._id, c._id)}
+                        className="text-red-500 ml-1"
+                        >
+                        X
+                        </button>
+                    </span>
+                    ))}
+                </div>
+                </li>
+            ))}
         </ul>
       )}
     </div>
