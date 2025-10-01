@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
+import Projects from "./pages/Projects";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -16,12 +17,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Link to="/signup">Signup</Link>
         <Link to="/login">Login</Link>
         <Link to="/profile">Profile</Link>
+        <Link to="/projects">Projects</Link>
       </nav>
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/projects" element={<Projects />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
