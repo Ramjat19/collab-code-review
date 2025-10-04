@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../api";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -15,6 +17,10 @@ export default function Login() {
       const res = await API.post("/auth/login", form);
       localStorage.setItem("token", res.data.token);
       setMessage("Login successful!");
+      // Redirect to dashboard after successful login
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1000);
     } catch (err: any) {
       setMessage(err.response?.data?.message || "Error logging in");
     }

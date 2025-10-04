@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import API from "../api";
-
-interface Project {
-  _id: string;
-  name: string;
-  description: string;
-}
+import ProjectList from "../components/ProjectList";
+import type { Project } from "../types/models";
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({ name: "", description: "" });
   const [message, setMessage] = useState("");
-  const [collabEmail, setCollabEmail] = useState("");
+
 
   // Fetch all projects
   const fetchProjects = async () => {
@@ -46,11 +43,10 @@ export default function Projects() {
   };
 
     // Add collaborator function
-    const handleAddCollaborator = async (projectId: string) => {
+    const handleAddCollaborator = async (projectId: string, email: string) => {
     try {
-        await API.post(`/projects/${projectId}/collaborators`, { email: collabEmail });
+        await API.post(`/projects/${projectId}/collaborators`, { email });
         setMessage("Collaborator added!");
-        setCollabEmail("");
         fetchProjects(); // refresh
     } catch {
         setMessage("Failed to add collaborator");
@@ -87,7 +83,7 @@ export default function Projects() {
           onChange={handleChange}
           className="border p-2"
         />
-        <button type="submit" className="bg-blue-500 text-white p-2">
+        <button type="submit" className="bg-blue-700 text-white p-2">
           Create Project
         </button>
       </form>
@@ -95,45 +91,11 @@ export default function Projects() {
       {message && <p className="text-green-600 mb-4">{message}</p>}
 
       <h3 className="text-lg font-bold mb-2">Your Projects:</h3>
-      {projects.length === 0 ? (
-        <p>No projects yet</p>
-      ) : (
-        <ul className="list-disc pl-5">
-          {projects.map((p) => (
-            <li key={p._id}>
-            <b>{p.name}</b>: {p.description}
-            <div className="mt-1 mb-2">
-                <input
-                placeholder="Collaborator Email"
-                value={collabEmail}
-                onChange={(e) => setCollabEmail(e.target.value)}
-                className="border p-1 mr-2"
-                />
-                <button
-                onClick={() => handleAddCollaborator(p._id)}
-                className="bg-green-500 text-white p-1"
-                >
-                Add
-                </button>
-            </div>
-            <div>
-                <b>Collaborators:</b>
-                {p.collaborators?.map((c: any) => (
-                    <span key={c._id} className="ml-2">
-                        {c.username} ({c.email})
-                        <button
-                        onClick={() => handleRemoveCollaborator(p._id, c._id)}
-                        className="text-red-500 ml-1"
-                        >
-                        X
-                        </button>
-                    </span>
-                    ))}
-                </div>
-                </li>
-            ))}
-        </ul>
-      )}
+      <ProjectList 
+        projects={projects}
+        onAddCollaborator={handleAddCollaborator}
+        onRemoveCollaborator={handleRemoveCollaborator}
+      />
     </div>
   );
 }

@@ -1,0 +1,590 @@
+{
+  "info": {
+    "name": "Collaborative Code Review Platform",
+    "description": "Complete API collection for the collaborative code review platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', responseJson.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Project\",\n  \"description\": \"A collaborative code review project\",\n  \"repository\": \"https://github.com/user/repo\",\n  \"isPrivate\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Project Name\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Collaborator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"collaborator@example.com\",\n  \"role\": \"collaborator\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:id/collaborators",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":id", "collaborators"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Collaborator",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:id/collaborators/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":id", "collaborators", ":userId"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "project-id-here"
+                },
+                {
+                  "key": "userId",
+                  "value": "user-id-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Code Snippets",
+      "item": [
+        {
+          "name": "Create Snippet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sample Code Snippet\",\n  \"description\": \"A sample JavaScript function\",\n  \"code\": \"function hello() {\\n  console.log('Hello, World!');\\n}\",\n  \"language\": \"javascript\",\n  \"projectId\": \"project-id-here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets"]
+            }
+          }
+        },
+        {
+          "name": "Get All Snippets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets"]
+            }
+          }
+        },
+        {
+          "name": "Get Snippets by Project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/project/:projectId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "project", ":projectId"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Snippet by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "snippet-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Snippet",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Snippet Title\",\n  \"code\": \"function updatedHello() {\\n  console.log('Updated Hello, World!');\\n}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "snippet-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Snippet",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "snippet-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Comment to Snippet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is a comment on the code snippet\",\n  \"lineNumber\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/:id/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "snippet-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Comments for Snippet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/:id/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "snippet-id-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pull Requests",
+      "item": [
+        {
+          "name": "Create Pull Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Add new feature\",\n  \"description\": \"This PR adds a new feature to improve user experience\",\n  \"projectId\": \"project-id-here\",\n  \"sourceBranch\": \"feature/new-feature\",\n  \"targetBranch\": \"main\",\n  \"files\": [\n    {\n      \"path\": \"src/components/NewFeature.tsx\",\n      \"content\": \"import React from 'react';\\n\\nconst NewFeature = () => {\\n  return <div>New Feature</div>;\\n};\\n\\nexport default NewFeature;\",\n      \"changeType\": \"added\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests"]
+            }
+          }
+        },
+        {
+          "name": "Get Pull Requests for Repository",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/repository/:projectId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", "repository", ":projectId"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "project-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pull Request by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "pr-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Comment to Pull Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This looks good! Just a minor suggestion on line 5.\",\n  \"filePath\": \"src/components/NewFeature.tsx\",\n  \"lineNumber\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/:id/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "pr-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"comment\": \"Great work! The implementation looks solid and follows our coding standards.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/:id/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", ":id", "review"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "pr-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Pull Request Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"merged\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/:id/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", ":id", "status"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "pr-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Assigned Pull Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pull-requests/assigned",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pull-requests", "assigned"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
