@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 // Import common language syntaxes
@@ -13,15 +14,22 @@ import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-markdown';
 import type { FileChange } from '../types';
+import InlineComment from './InlineComment';
+import { useSocket } from '../hooks/useSocket';
 
 interface DiffViewerProps {
   fileChange: FileChange;
+  pullRequestId?: string;
   onLineClick?: (lineNumber: number, filePath: string) => void;
   comments?: Array<{
+    _id: string;
     lineNumber: number;
     text: string;
-    author: { username: string };
+    author: { username: string; email: string };
+    createdAt: string;
+    filePath?: string;
   }>;
+  onCommentAdded?: (comment: any) => void;
 }
 
 interface LineData {
@@ -34,12 +42,93 @@ interface LineData {
 
 const DiffViewer: React.FC<DiffViewerProps> = ({ 
   fileChange, 
+  pullRequestId,
   onLineClick, 
-  comments = [] 
+  comments = [],
+  onCommentAdded
 }) => {
+  console.log('DiffViewer rendering for file:', fileChange.path, 'onLineClick provided:', !!onLineClick);
+  const [activeCommentLine, setActiveCommentLine] = useState<number | null>(null);
+  const [commentPosition, setCommentPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const { sendComment, onCommentAdded: onSocketCommentAdded } = useSocket();
+
   useEffect(() => {
     Prism.highlightAll();
   }, [fileChange]);
+
+  useEffect(() => {
+    if (pullRequestId) {
+      onSocketCommentAdded((data: any) => {
+        if (data.filePath === fileChange.path && onCommentAdded) {
+          onCommentAdded(data.comment);
+        }
+      });
+    }
+  }, [pullRequestId, fileChange.path, onCommentAdded, onSocketCommentAdded]);
+
+  const handleLineClick = (lineNumber: number, event: React.MouseEvent) => {
+    console.log('DiffViewer: Line clicked!', { lineNumber, filePath: fileChange.path, hasOnLineClick: !!onLineClick });
+    if (onLineClick) {
+      // If parent component handles line clicks, delegate to it
+      onLineClick(lineNumber, fileChange.path);
+    } else {
+      // Otherwise, handle locally
+      const rect = event.currentTarget.getBoundingClientRect();
+      setCommentPosition({
+        x: rect.right + 10,
+        y: rect.top
+      });
+      setActiveCommentLine(lineNumber);
+    }
+  };
+
+  const handleCommentSubmit = async (commentText: string) => {
+    if (!pullRequestId || !activeCommentLine) return;
+    
+    setIsSubmittingComment(true);
+    try {
+      // Send comment via HTTP API
+      const response = await fetch(`http://localhost:4000/api/pull-requests/${pullRequestId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          content: commentText,
+          filePath: fileChange.path,
+          lineNumber: activeCommentLine
+        })
+      });
+
+      if (response.ok) {
+        const newComment = await response.json();
+        
+        // Also send via Socket.IO for real-time updates
+        if (sendComment) {
+          sendComment(pullRequestId, newComment, activeCommentLine, fileChange.path);
+        }
+
+        // Close comment modal
+        setActiveCommentLine(null);
+        setCommentPosition(null);
+        
+        if (onCommentAdded) {
+          onCommentAdded(newComment);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleCloseComment = () => {
+    setActiveCommentLine(null);
+    setCommentPosition(null);
+  };
 
   const getLanguageFromExtension = (filePath: string): string => {
     const ext = filePath.split('.').pop()?.toLowerCase();
@@ -193,47 +282,122 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
 
       {/* Diff Content */}
       <div className="overflow-x-auto">
-        <pre className="text-sm">
-          <code className={`language-${language}`}>
+        <div style={{ backgroundColor: '#1f2937', color: '#f3f4f6', padding: '0', margin: '0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace' }}>
+            <tbody>
             {diffLines.map((line, index) => {
+              console.log('Rendering line:', index, { old: line.oldLineNumber, new: line.newLineNumber, type: line.type, content: line.content.substring(0, 30) });
               const lineComments = getCommentsForLine(line.newLineNumber || line.oldLineNumber || 0);
               
+              // DEBUG: Log if line numbers exist but aren't showing
+              if ((line.oldLineNumber || line.newLineNumber) && index < 3) {
+                console.log('LINE NUMBERS SHOULD BE VISIBLE:', { old: line.oldLineNumber, new: line.newLineNumber });
+              }
+              
               return (
-                <div key={index}>
-                  <div
-                    className={`flex items-start cursor-pointer ${getLineStyle(line.type)} transition-colors`}
-                    onClick={() => onLineClick && onLineClick(line.newLineNumber || line.oldLineNumber || 0, fileChange.path)}
-                  >
-                    {/* Line Numbers */}
-                    <div className="flex-shrink-0 w-20 px-2 py-1 text-gray-500 text-xs text-right border-r">
-                      <span className="block">{line.oldLineNumber || ''}</span>
-                      <span className="block">{line.newLineNumber || ''}</span>
-                    </div>
+                <React.Fragment key={index}>
+                  <tr style={{ borderBottom: '1px solid #374151' }}>
+                    {/* Line Numbers - SUPER VISIBLE */}
+                    <td 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('LINE NUMBER CLICKED!', line.newLineNumber || line.oldLineNumber);
+                        handleLineClick(line.newLineNumber || line.oldLineNumber || 0, e);
+                      }}
+                      style={{ 
+                        width: '80px',
+                        backgroundColor: '#f8f9fa',
+                        border: '1px solid #dee2e6',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        color: '#6c757d',
+                        padding: '4px',
+                        verticalAlign: 'top'
+                      }}
+                      title="Click to add comment"
+                    >
+                      <div style={{ color: '#dc3545' }}>{line.oldLineNumber || ''}</div>
+                      <div style={{ color: '#28a745' }}>{line.newLineNumber || ''}</div>
+                    </td>
                     
                     {/* Diff Prefix */}
-                    <div className="flex-shrink-0 w-6 px-1 py-1 text-xs text-center">
-                      {getLinePrefix(line.type)}
-                    </div>
+                    <td style={{
+                      width: '30px',
+                      backgroundColor: line.type === 'added' ? '#065f46' : line.type === 'removed' ? '#991b1b' : '#374151',
+                      textAlign: 'center',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      padding: '4px',
+                      verticalAlign: 'top'
+                    }}>
+                      <span style={{ 
+                        color: line.type === 'added' ? '#10b981' : line.type === 'removed' ? '#ef4444' : '#9ca3af',
+                      }}>
+                        {getLinePrefix(line.type)}
+                      </span>
+                    </td>
                     
                     {/* Code Content */}
-                    <div className="flex-1 px-2 py-1 overflow-x-auto">
-                      <span>{line.content}</span>
-                    </div>
-                  </div>
+                    <td 
+                      onClick={(e) => {
+                        console.log('CODE CONTENT CLICKED!', line.newLineNumber || line.oldLineNumber);
+                        handleLineClick(line.newLineNumber || line.oldLineNumber || 0, e);
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontFamily: 'monospace',
+                        fontSize: '14px',
+                        backgroundColor: line.type === 'added' ? '#065f46' : line.type === 'removed' ? '#991b1b' : '#1f2937',
+                        color: line.type === 'added' ? '#d1fae5' : line.type === 'removed' ? '#fecaca' : '#f3f4f6',
+                        cursor: 'pointer',
+                        whiteSpace: 'pre',
+                        verticalAlign: 'top'
+                      }}
+                    >
+                      {line.content}
+                    </td>
+                  </tr>
                   
                   {/* Comments for this line */}
                   {lineComments.map((comment, commentIndex) => (
-                    <div key={commentIndex} className="bg-blue-50 border-l-4 border-blue-500 ml-20 px-3 py-2 text-sm">
-                      <div className="font-medium text-blue-900">{comment.author.username}</div>
-                      <div className="text-blue-800 mt-1">{comment.text}</div>
-                    </div>
+                    <tr key={`comment-${commentIndex}`}>
+                      <td colSpan={3} style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '8px', border: '1px solid #3b82f6' }}>
+                        <div style={{ fontWeight: 'bold' }}>{comment.author.username}</div>
+                        <div style={{ marginTop: '4px' }}>{comment.text}</div>
+                      </td>
+                    </tr>
                   ))}
-                </div>
+                </React.Fragment>
               );
             })}
-          </code>
-        </pre>
+            </tbody>
+          </table>
+        </div>
       </div>
+
+            {/* Inline Comment Modal - only show if parent component doesn't handle line clicks */}
+      {!onLineClick && activeCommentLine !== null && commentPosition && (
+        <div
+          style={{
+            position: 'fixed',
+            left: commentPosition.x,
+            top: commentPosition.y,
+            zIndex: 1000
+          }}
+        >
+          <InlineComment
+            isVisible={true}
+            onClose={handleCloseComment}
+            onSubmit={handleCommentSubmit}
+            lineNumber={activeCommentLine}
+            filePath={fileChange.path}
+            existingComments={comments.filter(c => c.lineNumber === activeCommentLine)}
+            isSubmitting={isSubmittingComment}
+          />
+        </div>
+      )}
     </div>
   );
 };

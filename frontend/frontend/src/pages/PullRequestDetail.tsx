@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import { pullRequestAPI } from '../api';
 import DiffViewer from '../components/DiffViewer';
+import InlineComment from '../components/InlineComment';
+import { useSocket } from '../hooks/useSocket';
 import type { PullRequest, Comment } from '../types';
 
 const PullRequestDetail: React.FC = () => {
-  const { prId } = useParams<{ projectId: string; prId: string }>();
+  const { projectId, prId } = useParams<{ projectId: string; prId: string }>();
   const [pullRequest, setPullRequest] = useState<PullRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -13,16 +16,19 @@ const PullRequestDetail: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [selectedLine, setSelectedLine] = useState<{ lineNumber: number; filePath: string } | null>(null);
+  const { 
+    joinPRRoom, 
+    leavePRRoom, 
+    onCommentAdded, 
+    onUserJoined, 
+    onUserLeft, 
+    roomParticipants,
+    isConnected 
+  } = useSocket();
 
-  useEffect(() => {
-    if (prId) {
-      fetchPullRequest();
-    }
-  }, [prId]);
-
-  const fetchPullRequest = async () => {
+  const fetchPullRequest = useCallback(async () => {
     try {
-      setLoading(true);
+        setLoading(true);
       const response = await pullRequestAPI.getById(prId!);
       setPullRequest(response.data);
     } catch (err: any) {
@@ -30,7 +36,43 @@ const PullRequestDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [prId]);
+
+  useEffect(() => {
+    if (prId) {
+      fetchPullRequest();
+    }
+  }, [prId, fetchPullRequest]);
+
+  // Socket.IO room management
+  useEffect(() => {
+    if (prId && projectId && isConnected) {
+      // Join the PR room for real-time updates
+      joinPRRoom(prId, projectId);
+
+      // Set up comment listeners
+      onCommentAdded((data: any) => {
+        // Add new comment to local state
+        setPullRequest(prev => prev ? {
+          ...prev,
+          comments: [...prev.comments, data.comment]
+        } : null);
+      });
+
+      onUserJoined((data: any) => {
+        console.log(`${data.username} joined the PR room`);
+      });
+
+      onUserLeft((data: any) => {
+        console.log(`${data.username} left the PR room`);
+      });
+
+      // Cleanup: leave room when component unmounts
+      return () => {
+        leavePRRoom(prId);
+      };
+    }
+  }, [prId, projectId, isConnected, joinPRRoom, leavePRRoom, onCommentAdded, onUserJoined, onUserLeft]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +111,7 @@ const PullRequestDetail: React.FC = () => {
   };
 
   const handleLineClick = (lineNumber: number, filePath: string) => {
+    console.log('Line clicked!', { lineNumber, filePath });
     setSelectedLine({ lineNumber, filePath });
     setActiveTab('conversation');
   };
@@ -115,6 +158,7 @@ const PullRequestDetail: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-gray-600">Loading pull request...</div>
+        <div className="text-xs text-gray-400 mt-2">PR ID: {prId}</div>
       </div>
     );
   }
@@ -123,6 +167,32 @@ const PullRequestDetail: React.FC = () => {
     return (
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
         <div className="text-red-800">{error}</div>
+        <div className="text-xs text-gray-600 mt-2">
+          Attempted to fetch PR: {prId}
+          <br />
+          Project: {projectId}
+        </div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Debug: Show if we have the parameters
+  if (!prId || !projectId) {
+    return (
+      <div className="text-center py-8 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="text-yellow-800">Invalid URL parameters</div>
+        <div className="text-xs text-yellow-600 mt-2">
+          PR ID: {prId || 'missing'}, Project ID: {projectId || 'missing'}
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          Expected URL format: /projects/[projectId]/pull-requests/[prId]
+        </div>
       </div>
     );
   }
@@ -131,6 +201,15 @@ const PullRequestDetail: React.FC = () => {
     return (
       <div className="text-center py-8">
         <div className="text-gray-500">Pull request not found</div>
+        <div className="text-xs text-gray-400 mt-2">
+          PR ID: {prId}, Project: {projectId}
+        </div>
+        <button 
+          onClick={() => fetchPullRequest()} 
+          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
@@ -154,6 +233,29 @@ const PullRequestDetail: React.FC = () => {
               <span>#{pullRequest._id.slice(-6)}</span>
               <span>opened by <strong>{pullRequest.author.username}</strong></span>
               <span>on {formatDate(pullRequest.createdAt)}</span>
+              {/* Real-time participants indicator */}
+              {isConnected && roomParticipants.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  <Users className="h-4 w-4" />
+                  <span>{roomParticipants.length} viewing</span>
+                  <div className="flex -space-x-1">
+                    {roomParticipants.slice(0, 3).map((participant) => (
+                      <div
+                        key={participant.userId}
+                        className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs text-white border-2 border-white"
+                        title={participant.username}
+                      >
+                        {participant.username.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                    {roomParticipants.length > 3 && (
+                      <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white border-2 border-white">
+                        +{roomParticipants.length - 3}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                 {pullRequest.sourceBranch} → {pullRequest.targetBranch}
               </span>
@@ -327,8 +429,16 @@ const PullRequestDetail: React.FC = () => {
                 <DiffViewer
                   key={index}
                   fileChange={file}
+                  pullRequestId={prId}
                   onLineClick={handleLineClick}
                   comments={fileLineComments}
+                  onCommentAdded={(comment: Comment) => {
+                    // Update local state when comment is added
+                    setPullRequest(prev => prev ? {
+                      ...prev,
+                      comments: [...prev.comments, comment]
+                    } : null);
+                  }}
                 />
               );
             })}
@@ -344,6 +454,44 @@ const PullRequestDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Inline Comment Modal */}
+      {selectedLine && (
+        <InlineComment
+          isVisible={true}
+          onClose={() => setSelectedLine(null)}
+          onSubmit={(comment: string) => {
+            console.log('Rendering InlineComment modal for:', selectedLine);
+            if (!pullRequest) return;
+            
+            const commentData = {
+              content: comment,
+              filePath: selectedLine.filePath,
+              lineNumber: selectedLine.lineNumber,
+            };
+
+            pullRequestAPI.addComment(pullRequest._id, commentData)
+              .then(() => {
+                setSelectedLine(null);
+                fetchPullRequest(); // Refresh to get new comment
+              })
+              .catch((err: any) => {
+                setError(err.response?.data?.message || 'Failed to add comment');
+              });
+          }}
+          lineNumber={selectedLine.lineNumber}
+          filePath={selectedLine.filePath}
+          existingComments={pullRequest?.comments.filter(c => 
+            c.filePath === selectedLine.filePath && c.lineNumber === selectedLine.lineNumber
+          ).map(c => ({
+            _id: c._id,
+            author: { username: c.author.username, email: c.author.email },
+            text: c.text,
+            createdAt: c.createdAt
+          })) || []}
+          isSubmitting={submittingComment}
+        />
+      )}
     </div>
   );
 };

@@ -94,6 +94,8 @@ router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, re
 // Get single PR with full details
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log(`GET PR request for ID: ${req.params.id}, User ID: ${req.user.id}`);
+    
     const pullRequest = await PullRequest.findById(req.params.id)
       .populate("author", "username email")
       .populate("repository", "name description")
@@ -101,20 +103,34 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response): Prom
       .populate("comments.author", "username email")
       .populate("reviewDecisions.reviewer", "username email");
 
+    console.log(`Pull request found:`, !!pullRequest);
+
     if (!pullRequest) {
+      console.log("Pull request not found in database");
       res.status(404).json({ message: "Pull request not found" });
       return;
     }
 
     // Check access to repository
     const repository = await Project.findById(pullRequest.repository);
-    if (!repository || !repository.collaborators.includes(req.user.id)) {
+    console.log(`Repository found:`, !!repository);
+    console.log(`User ID: ${req.user.id}, Owner ID: ${repository?.owner}, Is collaborator:`, repository?.collaborators.includes(req.user.id));
+    
+    const hasAccess = repository && (
+      repository.owner.toString() === req.user.id || 
+      repository.collaborators.includes(req.user.id)
+    );
+    
+    if (!hasAccess) {
+      console.log("Access denied to repository");
       res.status(403).json({ message: "Access denied" });
       return;
     }
 
+    console.log("Sending pull request data");
     res.json(pullRequest);
   } catch (err) {
+    console.error("Error in GET PR route:", err);
     res.status(500).json({ message: "Error fetching pull request", error: err });
   }
 });
@@ -149,6 +165,24 @@ router.post("/:id/comments", authMiddleware, async (req: AuthRequest, res: Respo
     await pullRequest.save();
 
     await pullRequest.populate("comments.author", "username email");
+
+    // Emit real-time comment to Socket.IO room
+    const socketService = req.app.get('socketService');
+    if (socketService) {
+      socketService.broadcastToRoom(req.params.id, 'comment-added', {
+        comment: {
+          ...comment,
+          author: {
+            id: req.user.id,
+            username: req.user.username,
+            email: req.user.email
+          }
+        },
+        lineNumber,
+        filePath,
+        pullRequestId: req.params.id
+      });
+    }
 
     res.status(201).json(comment);
   } catch (err) {
