@@ -170,9 +170,9 @@ const PullRequestList: React.FC = () => {
                         <div
                           key={reviewer._id}
                           className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600"
-                          title={reviewer.username}
+                          title={reviewer.username || 'Unknown'}
                         >
-                          {reviewer.username.charAt(0).toUpperCase()}
+                          {reviewer.username?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                       ))}
                       {pr.assignedReviewers.length > 3 && (

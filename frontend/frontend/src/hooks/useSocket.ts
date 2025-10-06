@@ -86,6 +86,13 @@ export const useSocket = (): UseSocketReturn => {
       setRoomParticipants(prev => prev.filter(p => p.userId !== data.userId));
     });
 
+    // Handle incoming notifications
+    socket.on('notification', (notification) => {
+      console.log('New notification received:', notification);
+      // Dispatch custom event for notification components to listen
+      window.dispatchEvent(new CustomEvent('newNotification', { detail: notification }));
+    });
+
     // Cleanup on unmount
     return () => {
       if (socket) {

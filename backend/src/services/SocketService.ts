@@ -12,6 +12,11 @@ class SocketService {
   private io: SocketServer;
   private connectedUsers: Map<string, AuthenticatedSocket> = new Map();
 
+  // Getter to access io instance
+  public get ioInstance(): SocketServer {
+    return this.io;
+  }
+
   constructor(server: HttpServer) {
     this.io = new SocketServer(server, {
       cors: {
@@ -245,6 +250,22 @@ class SocketService {
 
   public getConnectedUsersCount(): number {
     return this.connectedUsers.size;
+  }
+
+  public sendNotification(userId: string, notification: any) {
+    const userSocket = this.connectedUsers.get(userId);
+    if (userSocket) {
+      userSocket.emit('notification', notification);
+      console.log(`Notification sent to user ${userId}`);
+    } else {
+      console.log(`User ${userId} is not connected, notification stored for later`);
+    }
+  }
+
+  public broadcastNotification(userIds: string[], notification: any) {
+    userIds.forEach(userId => {
+      this.sendNotification(userId, notification);
+    });
   }
 }
 

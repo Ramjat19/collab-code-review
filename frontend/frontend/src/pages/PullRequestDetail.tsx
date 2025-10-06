@@ -4,6 +4,7 @@ import { Users } from 'lucide-react';
 import { pullRequestAPI } from '../api';
 import DiffViewer from '../components/DiffViewer';
 import InlineComment from '../components/InlineComment';
+import ReviewerAssignment from '../components/ReviewerAssignment';
 import { useSocket } from '../hooks/useSocket';
 import type { PullRequest, Comment } from '../types';
 
@@ -215,7 +216,7 @@ const PullRequestDetail: React.FC = () => {
   }
 
   const lineComments = groupCommentsByLine();
-  const generalComments = pullRequest.comments.filter(c => !c.filePath || !c.lineNumber);
+  const generalComments = (pullRequest.comments || []).filter(c => c && (!c.filePath || !c.lineNumber));
 
   return (
     <div className="space-y-6">
@@ -239,13 +240,13 @@ const PullRequestDetail: React.FC = () => {
                   <Users className="h-4 w-4" />
                   <span>{roomParticipants.length} viewing</span>
                   <div className="flex -space-x-1">
-                    {roomParticipants.slice(0, 3).map((participant) => (
+                    {roomParticipants.filter(p => p && p.username).slice(0, 3).map((participant) => (
                       <div
                         key={participant.userId}
                         className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs text-white border-2 border-white"
-                        title={participant.username}
+                        title={participant.username || 'Unknown'}
                       >
-                        {participant.username.charAt(0).toUpperCase()}
+                        {participant.username?.charAt(0)?.toUpperCase() || '?'}
                       </div>
                     ))}
                     {roomParticipants.length > 3 && (
@@ -282,6 +283,14 @@ const PullRequestDetail: React.FC = () => {
         {/* Description */}
         <div className="prose prose-sm max-w-none">
           <p className="text-gray-700">{pullRequest.description}</p>
+        </div>
+        
+        {/* Reviewer Assignment */}
+        <div className="mt-4">
+          <ReviewerAssignment
+            pullRequest={pullRequest}
+            onUpdate={(updatedPR) => setPullRequest(updatedPR)}
+          />
         </div>
       </div>
 
@@ -362,15 +371,15 @@ const PullRequestDetail: React.FC = () => {
 
             {/* Comments */}
             <div className="space-y-4">
-              {generalComments.map((comment) => (
+              {generalComments.filter(comment => comment && comment._id).map((comment) => (
                 <div key={comment._id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
                     <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600">
-                      {comment.author.username.charAt(0).toUpperCase()}
+                      {comment.author?.username?.charAt(0)?.toUpperCase() || '?'}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <span className="font-medium text-gray-900">{comment.author.username}</span>
+                        <span className="font-medium text-gray-900">{comment.author?.username || 'Unknown'}</span>
                         <span className="text-sm text-gray-500">{formatDate(comment.createdAt)}</span>
                       </div>
                       <div className="text-gray-700">{comment.text}</div>
@@ -384,15 +393,15 @@ const PullRequestDetail: React.FC = () => {
             {pullRequest.reviewDecisions.length > 0 && (
               <div className="space-y-3">
                 <h3 className="font-medium text-gray-900">Reviews</h3>
-                {pullRequest.reviewDecisions.map((review, index) => (
+                {(pullRequest.reviewDecisions || []).filter(review => review && review.reviewer).map((review, index) => (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
                       <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600">
-                        {review.reviewer.username.charAt(0).toUpperCase()}
+                        {review.reviewer?.username?.charAt(0)?.toUpperCase() || '?'}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <span className="font-medium text-gray-900">{review.reviewer.username}</span>
+                          <span className="font-medium text-gray-900">{review.reviewer?.username || 'Unknown'}</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             review.decision === 'approved' ? 'bg-green-100 text-green-800' :
                             review.decision === 'changes_requested' ? 'bg-red-100 text-red-800' :

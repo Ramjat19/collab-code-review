@@ -43,6 +43,44 @@ export const pullRequestAPI = {
   // Get assigned PRs
   getAssigned: () =>
     API.get<PullRequest[]>("/pull-requests/assigned"),
+  
+  // Assign reviewers
+  assignReviewers: (id: string, reviewerIds: string[]) =>
+    API.post<{ message: string; pullRequest: PullRequest }>(`/pull-requests/${id}/assign-reviewers`, { reviewerIds }),
+  
+  // Remove reviewer
+  removeReviewer: (id: string, reviewerId: string) =>
+    API.delete<{ message: string; pullRequest: PullRequest }>(`/pull-requests/${id}/reviewers/${reviewerId}`)
+};
+
+// User API functions
+export const userAPI = {
+  // Get all users
+  getAll: () =>
+    API.get<{ success: boolean; data: import("../types").User[] }>('/users/all'),
+  
+  // Get users by project
+  getByProject: (projectId: string) =>
+    API.get<{ success: boolean; data: import("../types").User[] }>(`/users/project/${projectId}`)
+};
+
+// Notification API functions
+export const notificationAPI = {
+  // Get user notifications
+  getNotifications: (page: number = 1, limit: number = 20) =>
+    API.get<{ success: boolean; data: import("../types").NotificationResponse }>(`/notifications?page=${page}&limit=${limit}`),
+  
+  // Mark notification as read
+  markAsRead: (id: string) =>
+    API.patch<{ success: boolean; message: string }>(`/notifications/${id}/read`),
+  
+  // Mark all as read
+  markAllAsRead: () =>
+    API.patch<{ success: boolean; message: string }>(`/notifications/read-all`),
+  
+  // Delete notification
+  delete: (id: string) =>
+    API.delete<{ success: boolean; message: string }>(`/notifications/${id}`)
 };
 
 export default API;

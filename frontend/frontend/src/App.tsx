@@ -10,6 +10,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import PullRequestList from './pages/PullRequestList';
 import PullRequestDetail from './pages/PullRequestDetail';
 import SimpleGitHubFeatures from './pages/SimpleGitHubFeatures';
+import NotificationBell from './components/NotificationBell';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -68,6 +69,7 @@ function App() {
               
               {isAuthenticated && (
                 <div className="flex items-center space-x-4">
+                  <NotificationBell />
                   <button
                     onClick={() => {
                       localStorage.removeItem('token');

@@ -86,3 +86,46 @@ export interface CreatePullRequestData {
   assignees?: string[];
   files: FileChange[];
 }
+
+// Notification types
+export interface Notification {
+  _id: string;
+  recipient: string;
+  sender: User;
+  type: 'reviewer_assigned' | 'pr_updated' | 'comment_added' | 'pr_approved' | 'pr_rejected';
+  title: string;
+  message: string;
+  relatedPR?: PullRequest;
+  relatedProject?: Project;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  totalCount: number;
+  unreadCount: number;
+  hasMore: boolean;
+}
+
+export interface Notification {
+  _id: string;
+  recipient: string;
+  sender: User;
+  type: 'reviewer_assigned' | 'pr_updated' | 'comment_added' | 'pr_approved' | 'pr_rejected';
+  title: string;
+  message: string;
+  relatedPR?: PullRequest;
+  relatedProject?: Project;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  totalCount: number;
+  unreadCount: number;
+  hasMore: boolean;
+}

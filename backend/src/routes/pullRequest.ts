@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import authMiddleware, { AuthRequest } from '../middleware/auth';
 import PullRequest from '../models/PullRequest';
 import Project from '../models/Project';
+import { NotificationService } from '../services/NotificationService';
 
 const router = express.Router();
 
@@ -166,6 +167,29 @@ router.post("/:id/comments", authMiddleware, async (req: AuthRequest, res: Respo
 
     await pullRequest.populate("comments.author", "username email");
 
+    // Create notifications for other participants (excluding comment author)
+    const participantsToNotify = new Set([
+      pullRequest.author.toString(),
+      ...pullRequest.assignedReviewers.map(r => r.toString())
+    ]);
+    
+    // Remove comment author from notification list
+    participantsToNotify.delete(req.user.id);
+
+    // Send notifications to participants
+    for (const userId of participantsToNotify) {
+      try {
+        await NotificationService.notifyCommentAdded(
+          userId,
+          pullRequest._id.toString(),
+          req.user.id,
+          pullRequest.title
+        );
+      } catch (notifError) {
+        console.error('Error sending comment notification:', notifError);
+      }
+    }
+
     // Emit real-time comment to Socket.IO room
     const socketService = req.app.get('socketService');
     if (socketService) {
@@ -283,6 +307,108 @@ router.get("/assigned", authMiddleware, async (req: AuthRequest, res: Response):
     res.json(pullRequests);
   } catch (err) {
     res.status(500).json({ message: "Error fetching assigned PRs", error: err });
+  }
+});
+
+// Assign reviewers to a pull request
+router.post("/:id/assign-reviewers", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { reviewerIds } = req.body;
+
+    if (!reviewerIds || !Array.isArray(reviewerIds)) {
+      res.status(400).json({ message: "reviewerIds must be an array" });
+      return;
+    }
+
+    const pullRequest = await PullRequest.findById(id).populate("repository");
+    if (!pullRequest) {
+      res.status(404).json({ message: "Pull request not found" });
+      return;
+    }
+
+    // Check if user has permission to assign reviewers (project owner/collaborator)
+    const project = await Project.findById(pullRequest.repository);
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
+
+    if (project.owner.toString() !== req.user.id && !project.collaborators.includes(req.user.id)) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    // Update assigned reviewers
+    pullRequest.assignedReviewers = reviewerIds;
+    await pullRequest.save();
+
+    // Send notifications to assigned reviewers
+    for (const reviewerId of reviewerIds) {
+      if (reviewerId !== req.user.id) { // Don't notify the person who assigned
+        try {
+          await NotificationService.notifyReviewerAssigned(
+            reviewerId,
+            (pullRequest as any)._id.toString(),
+            req.user.id,
+            pullRequest.title
+          );
+        } catch (notifError) {
+          console.error('Error sending notification to reviewer:', notifError);
+          // Don't fail the whole request if notification fails
+        }
+      }
+    }
+
+    // Populate and return updated PR
+    await pullRequest.populate("assignedReviewers", "username email");
+    
+    res.json({
+      message: "Reviewers assigned successfully",
+      pullRequest
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error assigning reviewers", error: err });
+  }
+});
+
+// Remove reviewer from a pull request
+router.delete("/:id/reviewers/:reviewerId", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id, reviewerId } = req.params;
+
+    const pullRequest = await PullRequest.findById(id).populate("repository");
+    if (!pullRequest) {
+      res.status(404).json({ message: "Pull request not found" });
+      return;
+    }
+
+    // Check permissions
+    const project = await Project.findById(pullRequest.repository);
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
+
+    if (project.owner.toString() !== req.user.id && !project.collaborators.includes(req.user.id)) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    // Remove reviewer
+    pullRequest.assignedReviewers = pullRequest.assignedReviewers.filter(
+      reviewer => reviewer.toString() !== reviewerId
+    );
+    await pullRequest.save();
+
+    await pullRequest.populate("assignedReviewers", "username email");
+    
+    res.json({
+      message: "Reviewer removed successfully",
+      pullRequest
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error removing reviewer", error: err });
   }
 });
 
