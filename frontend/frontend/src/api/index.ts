@@ -1,8 +1,9 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { PullRequest, CreatePullRequestData, Comment } from "../types";
 
 const API = axios.create({
   baseURL: "http://localhost:4000/api",
+  timeout: 10000, // 10 second timeout
 });
 
 // Add token automatically if available
@@ -13,6 +14,32 @@ API.interceptors.request.use((req) => {
   }
   return req;
 });
+
+// Enhanced error handling
+API.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    // Handle different types of errors
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timeout - please check your connection';
+    } else if (error.response?.status === 401) {
+      // Handle unauthorized - redirect to login
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      error.message = 'Session expired - please login again';
+    } else if (error.response?.status === 403) {
+      error.message = 'Access denied - insufficient permissions';
+    } else if (error.response?.status === 404) {
+      error.message = 'Resource not found';
+    } else if (error.response && error.response.status >= 500) {
+      error.message = 'Server error - please try again later';
+    } else if (!error.response) {
+      error.message = 'Network error - please check your connection';
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Pull Request API functions
 export const pullRequestAPI = {

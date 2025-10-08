@@ -1,0 +1,715 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Collaborative Code Review API",
+    "version": "1.0.0",
+    "description": "A comprehensive API for collaborative code review with real-time features",
+    "contact": {
+      "name": "API Support",
+      "email": "support@codereview.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000/api",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Unique user identifier"
+          },
+          "username": {
+            "type": "string",
+            "description": "User's username"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User's email address"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Unique project identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Project name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Project description"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/User"
+          },
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "File": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path"
+          },
+          "changeType": {
+            "type": "string",
+            "enum": ["added", "modified", "deleted"]
+          },
+          "oldContent": {
+            "type": "string",
+            "description": "Original file content (for modified/deleted files)"
+          },
+          "newContent": {
+            "type": "string",
+            "description": "New file content (for added/modified files)"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text content"
+          },
+          "author": {
+            "$ref": "#/components/schemas/User"
+          },
+          "filePath": {
+            "type": "string",
+            "description": "File path (optional, for line comments)"
+          },
+          "lineNumber": {
+            "type": "integer",
+            "description": "Line number (optional, for line comments)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PullRequest": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Unique pull request identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Pull request title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Pull request description"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "reviewing", "approved", "rejected", "merged", "closed", "draft"]
+          },
+          "sourceBranch": {
+            "type": "string",
+            "description": "Source branch name"
+          },
+          "targetBranch": {
+            "type": "string",
+            "description": "Target branch name"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "author": {
+            "$ref": "#/components/schemas/User"
+          },
+          "assignedReviewers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaginatedPullRequests": {
+        "type": "object",
+        "properties": {
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequest"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "currentPage": {
+                "type": "integer"
+              },
+              "totalPages": {
+                "type": "integer"
+              },
+              "totalCount": {
+                "type": "integer"
+              },
+              "hasNextPage": {
+                "type": "boolean"
+              },
+              "hasPrevPage": {
+                "type": "boolean"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "error": {
+            "type": "object",
+            "description": "Additional error details"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "JWT authentication token"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Get all projects for authenticated user",
+        "responses": {
+          "200": {
+            "description": "List of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create a new project",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pull-requests/repository/{projectId}": {
+      "get": {
+        "tags": ["Pull Requests"],
+        "summary": "Get pull requests for a project",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["open", "reviewing", "approved", "rejected", "merged", "closed", "draft"]
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search in title and description"
+          },
+          {
+            "name": "assignedTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["me", "unassigned"]
+            },
+            "description": "Filter by assignment"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "name": "simple",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true"]
+            },
+            "description": "Return simple array format for backwards compatibility"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of pull requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedPullRequests"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PullRequest"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Pull Requests"],
+        "summary": "Create a new pull request",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "sourceBranch", "targetBranch", "files"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "sourceBranch": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "targetBranch": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/components/schemas/File"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pull request created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pull-requests/{id}": {
+      "get": {
+        "tags": ["Pull Requests"],
+        "summary": "Get pull request by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pull request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequest"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pull request not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pull-requests/{id}/status": {
+      "patch": {
+        "tags": ["Pull Requests"],
+        "summary": "Update pull request status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["open", "reviewing", "approved", "rejected", "merged", "closed", "draft"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequest"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pull-requests/{id}/comments": {
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Add comment to pull request",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Pull request ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Comment text content"
+                  },
+                  "filePath": {
+                    "type": "string",
+                    "description": "File path for line-specific comments"
+                  },
+                  "lineNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Line number for line-specific comments"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid comment data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pull-requests/{id}/assign": {
+      "patch": {
+        "tags": ["Pull Requests"],
+        "summary": "Assign reviewers to pull request",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reviewerIds"],
+                "properties": {
+                  "reviewerIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Array of user IDs to assign as reviewers"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reviewers assigned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequest"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

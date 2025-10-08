@@ -1,0 +1,512 @@
+{
+  "info": {
+    "name": "Collaborative Code Review API",
+    "description": "Complete collection for testing the Collaborative Code Review API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pr_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('auth_token', response.token);",
+                  "    pm.collectionVariables.set('user_id', response.user._id);",
+                  "    pm.test('Login successful', () => {",
+                  "        pm.expect(response.token).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": ["{{base_url}}"],
+              "path": ["projects"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('project_id', response._id);",
+                  "    pm.test('Project created', () => {",
+                  "        pm.expect(response._id).to.exist;",
+                  "        pm.expect(response.name).to.equal('Test Project');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Project\",\n  \"description\": \"A project for testing the API\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": ["{{base_url}}"],
+              "path": ["projects"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "{{project_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pull Requests",
+      "item": [
+        {
+          "name": "Create Pull Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('pr_id', response._id);",
+                  "    pm.test('Pull request created', () => {",
+                  "        pm.expect(response._id).to.exist;",
+                  "        pm.expect(response.title).to.equal('Test Pull Request');",
+                  "        pm.expect(response.status).to.equal('open');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Pull Request\",\n  \"description\": \"This is a test pull request\",\n  \"sourceBranch\": \"feature/test-branch\",\n  \"targetBranch\": \"main\",\n  \"files\": [\n    {\n      \"path\": \"src/test.js\",\n      \"changeType\": \"added\",\n      \"newContent\": \"console.log('Hello, World!');\"\n    },\n    {\n      \"path\": \"src/utils.js\",\n      \"changeType\": \"modified\",\n      \"oldContent\": \"function oldFunction() { return 'old'; }\",\n      \"newContent\": \"function newFunction() { return 'new and improved'; }\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{project_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pull Requests (Simple)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pull-requests/repository/{{project_id}}?simple=true",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "repository", "{{project_id}}"],
+              "query": [
+                {
+                  "key": "simple",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pull Requests (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pull-requests/repository/{{project_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "repository", "{{project_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Pull Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pull-requests/repository/{{project_id}}?search=test&status=open",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "repository", "{{project_id}}"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "test"
+                },
+                {
+                  "key": "status",
+                  "value": "open"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pull Request by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{pr_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{pr_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update PR Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"reviewing\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{pr_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{pr_id}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Reviewers",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerIds\": [\"{{user_id}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{pr_id}}/assign",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{pr_id}}", "assign"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Add General Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is a general comment on the pull request.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{pr_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{pr_id}}", "comments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Line Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This line needs improvement.\",\n  \"filePath\": \"src/test.js\",\n  \"lineNumber\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{pr_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{pr_id}}", "comments"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Advanced Scenarios",
+      "item": [
+        {
+          "name": "Complete PR Workflow",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// This request demonstrates a complete PR workflow",
+                  "console.log('Starting complete PR workflow test');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Feature: Add user authentication\",\n  \"description\": \"Implements JWT-based authentication system with login/logout functionality. Includes input validation and error handling.\",\n  \"sourceBranch\": \"feature/user-auth\",\n  \"targetBranch\": \"develop\",\n  \"files\": [\n    {\n      \"path\": \"src/auth/auth.service.ts\",\n      \"changeType\": \"added\",\n      \"newContent\": \"import jwt from 'jsonwebtoken';\\n\\nexport class AuthService {\\n  generateToken(userId: string): string {\\n    return jwt.sign({ userId }, process.env.JWT_SECRET!);\\n  }\\n\\n  verifyToken(token: string): any {\\n    return jwt.verify(token, process.env.JWT_SECRET!);\\n  }\\n}\"\n    },\n    {\n      \"path\": \"src/middleware/auth.middleware.ts\",\n      \"changeType\": \"added\",\n      \"newContent\": \"import { Request, Response, NextFunction } from 'express';\\nimport { AuthService } from '../auth/auth.service';\\n\\nconst authService = new AuthService();\\n\\nexport const authenticateToken = (req: Request, res: Response, next: NextFunction) => {\\n  const token = req.header('Authorization')?.replace('Bearer ', '');\\n  \\n  if (!token) {\\n    return res.status(401).json({ message: 'Access denied' });\\n  }\\n\\n  try {\\n    const decoded = authService.verifyToken(token);\\n    req.user = decoded;\\n    next();\\n  } catch (error) {\\n    res.status(401).json({ message: 'Invalid token' });\\n  }\\n};\"\n    },\n    {\n      \"path\": \"README.md\",\n      \"changeType\": \"modified\",\n      \"oldContent\": \"# Project\\n\\nA simple project.\",\n      \"newContent\": \"# Project\\n\\nA simple project with authentication.\\n\\n## Authentication\\n\\nThe API uses JWT tokens for authentication. Include the token in the Authorization header:\\n\\n```\\nAuthorization: Bearer <token>\\n```\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pull-requests/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "{{project_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Operations Test",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Multiple operations completed', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pull-requests/repository/{{project_id}}?page=1&limit=50&status=open&assignedTo=me",
+              "host": ["{{base_url}}"],
+              "path": ["pull-requests", "repository", "{{project_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "status",
+                  "value": "open"
+                },
+                {
+                  "key": "assignedTo",
+                  "value": "me"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "console.log('Making request to: ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "pm.test('Response time is less than 5000ms', () => {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Response has correct content-type', () => {",
+          "    if (pm.response.code !== 401) {",
+          "        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "    }",
+          "});"
+        ]
+      }
+    }
+  ]
+}

@@ -11,6 +11,8 @@ import PullRequestList from './pages/PullRequestList';
 import PullRequestDetail from './pages/PullRequestDetail';
 import SimpleGitHubFeatures from './pages/SimpleGitHubFeatures';
 import NotificationBell from './components/NotificationBell';
+import { ErrorProvider } from './contexts/ErrorContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -34,8 +36,9 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
+    <ErrorProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -131,8 +134,10 @@ function App() {
             />
           </Routes>
         </main>
-      </div>
-    </Router>
+        </div>
+        <ErrorBoundary />
+      </Router>
+    </ErrorProvider>
   );
 }
 
