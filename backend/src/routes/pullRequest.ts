@@ -61,7 +61,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
 router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { projectId } = req.params;
-    const { status } = req.query;
+    const { status, search, assignedTo, page = 1, limit = 10, simple } = req.query;
 
     // Check access to repository
     const repository = await Project.findById(projectId);
@@ -76,17 +76,78 @@ router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, re
     }
 
     let filter: any = { repository: projectId };
-    if (status) {
+    
+    // Status filter
+    if (status && status !== 'all') {
       filter.status = status;
     }
+    
+    // Search filter (title and description)
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Assigned to filter
+    if (assignedTo) {
+      if (assignedTo === 'me') {
+        filter.assignedReviewers = req.user.id;
+      } else if (assignedTo === 'unassigned') {
+        filter.$or = [
+          { assignedReviewers: { $exists: false } },
+          { assignedReviewers: { $size: 0 } }
+        ];
+      }
+    }
 
+    // Pagination
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count for pagination
+    const totalCount = await PullRequest.countDocuments(filter);
+    
     const pullRequests = await PullRequest.find(filter)
       .populate("author", "username email")
       .populate("repository", "name description")
       .populate("assignedReviewers", "username email")
-      .sort({ createdAt: -1 });
+      .select('-files.oldContent -files.newContent -comments.text') // Exclude large content but keep arrays for counts
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
 
-    res.json(pullRequests);
+    // If simple mode is requested (backwards compatibility), return just the array
+    if (simple === 'true') {
+      const simplePullRequests = await PullRequest.find(filter)
+        .populate("author", "username email")
+        .populate("repository", "name description")
+        .populate("assignedReviewers", "username email")
+        .select('-files.oldContent -files.newContent -comments.text') // Exclude large content but keep arrays for counts
+        .sort({ createdAt: -1 })
+        .limit(50); // Reasonable limit for simple mode
+      
+      res.json(simplePullRequests);
+      return;
+    }
+
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
+
+    res.json({
+      pullRequests,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        hasNextPage,
+        hasPrevPage,
+        limit: limitNum
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: "Error fetching pull requests", error: err });
   }
@@ -181,7 +242,7 @@ router.post("/:id/comments", authMiddleware, async (req: AuthRequest, res: Respo
       try {
         await NotificationService.notifyCommentAdded(
           userId,
-          pullRequest._id.toString(),
+          req.params.id!,
           req.user.id,
           pullRequest.title
         );

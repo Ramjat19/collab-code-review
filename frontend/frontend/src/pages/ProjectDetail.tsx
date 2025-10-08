@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Plus, GitPullRequest, Code2, Users } from "lucide-react";
+import { Plus, GitPullRequest, Code2, Search } from "lucide-react";
 import API from "../api";
 import { pullRequestAPI } from "../api";
 import SnippetList from "../components/SnippetList";
@@ -412,7 +412,38 @@ export default function ProjectDetail() {
 
           {/* Pull Requests List */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">Pull Requests</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Pull Requests</h2>
+              <Link
+                to={`/projects/${id}/pull-requests`}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
+              >
+                View All with Search & Filters
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            
+            {/* Info banner about advanced features */}
+            {pullRequests.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-2 text-blue-800">
+                  <Search className="h-4 w-4" />
+                  <span className="font-medium">Need to search, filter, or navigate through many PRs?</span>
+                  <Link
+                    to={`/projects/${id}/pull-requests`}
+                    className="font-semibold hover:underline"
+                  >
+                    Use the advanced PR list →
+                  </Link>
+                </div>
+                <p className="text-blue-700 text-sm mt-1">
+                  Advanced list includes: search by title, status filters, assignment filters, pagination & keyboard shortcuts
+                </p>
+              </div>
+            )}
+            
             {pullRequests.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
                 <GitPullRequest className="h-12 w-12 text-gray-400 mx-auto mb-4" />

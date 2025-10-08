@@ -15,7 +15,7 @@ export interface IFile extends Document {
 export interface IPullRequest extends Document {
   title: string;
   description: string;
-  status: 'open' | 'reviewing' | 'approved' | 'rejected' | 'merged' | 'closed';
+  status: 'open' | 'reviewing' | 'approved' | 'rejected' | 'merged' | 'closed' | 'draft';
   sourceBranch: string;
   targetBranch: string;
   repository: mongoose.Types.ObjectId;
@@ -61,7 +61,7 @@ const pullRequestSchema = new Schema<IPullRequest>(
     description: { type: String },
     status: { 
       type: String, 
-      enum: ['open', 'reviewing', 'approved', 'rejected', 'merged', 'closed'],
+      enum: ['open', 'reviewing', 'approved', 'rejected', 'merged', 'closed', 'draft'],
       default: 'open'
     },
     sourceBranch: { type: String, required: true },

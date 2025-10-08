@@ -17,6 +17,7 @@ const PullRequestDetail: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [selectedLine, setSelectedLine] = useState<{ lineNumber: number; filePath: string } | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { 
     joinPRRoom, 
     leavePRRoom, 
@@ -117,16 +118,35 @@ const PullRequestDetail: React.FC = () => {
     setActiveTab('conversation');
   };
 
+  const handleStatusUpdate = async (newStatus: string) => {
+    try {
+      setUpdatingStatus(true);
+      await pullRequestAPI.updateStatus(pullRequest!._id, newStatus);
+      setPullRequest(prev => prev ? { ...prev, status: newStatus as any } : null);
+    } catch (err: any) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update PR status: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':
         return 'bg-green-100 text-green-800';
+      case 'draft':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'reviewing':
+        return 'bg-blue-100 text-blue-800';
+      case 'approved':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
       case 'merged':
         return 'bg-purple-100 text-purple-800';
       case 'closed':
         return 'bg-gray-100 text-gray-800';
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-blue-100 text-blue-800';
     }
@@ -265,6 +285,22 @@ const PullRequestDetail: React.FC = () => {
           
           {/* Actions */}
           <div className="flex space-x-2">
+            {/* Status Update Dropdown */}
+            <select
+              value={pullRequest.status}
+              onChange={(e) => handleStatusUpdate(e.target.value)}
+              disabled={updatingStatus}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value="draft">Draft</option>
+              <option value="open">Open</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="merged">Merged</option>
+              <option value="closed">Closed</option>
+            </select>
+            
             <button
               onClick={() => handleSubmitReview('approved')}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm"

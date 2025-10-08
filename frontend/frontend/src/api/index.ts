@@ -16,9 +16,39 @@ API.interceptors.request.use((req) => {
 
 // Pull Request API functions
 export const pullRequestAPI = {
-  // Get PRs for a project/repository
+  // Get PRs for a project/repository (simple - for backwards compatibility)
   getByProject: (projectId: string, status?: string) => 
-    API.get<PullRequest[]>(`/pull-requests/repository/${projectId}`, { params: { status } }),
+    API.get<PullRequest[]>(`/pull-requests/repository/${projectId}`, { 
+      params: { status, simple: 'true' } 
+    }),
+
+  // Get PRs for a project/repository with search and pagination
+  getByProjectWithPagination: (projectId: string, options?: {
+    status?: string;
+    search?: string;
+    assignedTo?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const params = {
+      status: options?.status,
+      search: options?.search,
+      assignedTo: options?.assignedTo,
+      page: options?.page,
+      limit: options?.limit
+    };
+    return API.get<{
+      pullRequests: PullRequest[];
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalCount: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+        limit: number;
+      }
+    }>(`/pull-requests/repository/${projectId}`, { params });
+  },
   
   // Get single PR with details
   getById: (id: string) => 
