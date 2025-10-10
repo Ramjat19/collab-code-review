@@ -23,7 +23,8 @@ export function createApp() {
       "http://localhost:5173",
       "http://localhost:5174", 
       "http://127.0.0.1:5173",
-      "http://127.0.0.1:5174"
+      "http://127.0.0.1:5174",
+      "https://collab-code-review-5gi4vw7jd-ram-prasads-projects-12031425.vercel.app"
     ],
     credentials: true
   }));
