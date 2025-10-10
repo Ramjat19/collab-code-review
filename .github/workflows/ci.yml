@@ -155,9 +155,8 @@ jobs:
 
     - name: Create backend .env file
       run: |
-        echo "NODE_ENV=test" >> .env
-        echo "MONGODB_URI=mongodb://localhost:27017/collab-code-review-integration" >> .env
-        echo "JWT_SECRET=integration-test-jwt-secret" >> .env
+        echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
         echo "PORT=4000" >> .env
       working-directory: ./backend
 
