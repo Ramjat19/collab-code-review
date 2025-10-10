@@ -155,9 +155,10 @@ jobs:
 
     - name: Create backend .env file
       run: |
-        echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
-        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-        echo "PORT=4000" >> .env
+        touch .env
+        echo MONGODB_URI=${{ secrets.MONGODB_URI }} >> .env
+        echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
+        cat .env
       working-directory: ./backend
 
     - name: Build backend
@@ -176,16 +177,16 @@ jobs:
       working-directory: ./backend
       env:
         NODE_ENV: test
-        MONGODB_URI: mongodb://localhost:27017/collab-code-review-integration
-        JWT_SECRET: integration-test-jwt-secret
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     - name: Run integration tests
       run: npm test
       working-directory: ./backend
       env:
         NODE_ENV: test
-        MONGODB_URI: mongodb://localhost:27017/collab-code-review-integration
-        JWT_SECRET: integration-test-jwt-secret
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
   # Security Audit
   security-audit:
