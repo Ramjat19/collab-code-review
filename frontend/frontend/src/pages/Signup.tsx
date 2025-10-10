@@ -14,8 +14,9 @@ export default function Signup() {
     try {
       await API.post("/auth/signup", form);
       setMessage("Signup successful! You can login now.");
-    } catch (err: any) {
-      setMessage(err.response?.data?.message || "Error signing up");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setMessage(error.response?.data?.message || "Error signing up");
     }
   };
 

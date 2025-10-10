@@ -21,8 +21,9 @@ export default function Login() {
       setTimeout(() => {
         navigate("/dashboard");
       }, 1000);
-    } catch (err: any) {
-      setMessage(err.response?.data?.message || "Error logging in");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setMessage(error.response?.data?.message || "Error logging in");
     }
   };
 

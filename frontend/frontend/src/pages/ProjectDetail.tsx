@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Plus, GitPullRequest, Code2, Search } from "lucide-react";
 import API from "../api";
@@ -42,7 +42,7 @@ export default function ProjectDetail() {
   const [isPrSubmitting, setIsPrSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
-  const fetchProject = async () => {
+  const fetchProject = useCallback(async () => {
     try {
       const res = await API.get(`/projects/${id}`);
       setProject(res.data);
@@ -50,9 +50,9 @@ export default function ProjectDetail() {
       console.error('Error fetching project:', error);
       setMessage("Failed to load project");
     }
-  };
+  }, [id]);
 
-  const fetchSnippets = async () => {
+  const fetchSnippets = useCallback(async () => {
     try {
       const res = await API.get(`/snippets/${id}`);
       setSnippets(res.data);
@@ -60,9 +60,9 @@ export default function ProjectDetail() {
       console.error('Error fetching snippets:', error);
       setMessage("Failed to load snippets");
     }
-  };
+  }, [id]);
 
-  const fetchPullRequests = async () => {
+  const fetchPullRequests = useCallback(async () => {
     try {
       const res = await pullRequestAPI.getByProject(id!);
       setPullRequests(res.data);
@@ -70,7 +70,7 @@ export default function ProjectDetail() {
       console.error('Error fetching pull requests:', error);
       setMessage("Failed to load pull requests");
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) {
@@ -78,7 +78,7 @@ export default function ProjectDetail() {
       fetchSnippets();
       fetchPullRequests();
     }
-  }, [id]);
+  }, [id, fetchProject, fetchSnippets, fetchPullRequests]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });

@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import API from "../api";
 
 export default function Profile() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{
+    id: string;
+    username: string;
+    email: string;
+  } | null>(null);
 
   useEffect(() => {
     API.get("/auth/me")

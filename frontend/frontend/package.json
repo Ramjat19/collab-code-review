@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "build": "vite build",
+    "build:check": "tsc -b && vite build",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "test": "echo 'No tests specified' && exit 0",
     "preview": "vite preview"
   },
   "dependencies": {

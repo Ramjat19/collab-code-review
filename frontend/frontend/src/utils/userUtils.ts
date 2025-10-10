@@ -32,6 +32,6 @@ export const getUserEmail = (user: User | undefined | null): string => {
 /**
  * Check if user object has valid data
  */
-export const isValidUser = (user: any): user is User => {
-  return user && typeof user === 'object' && typeof user.username === 'string';
+export const isValidUser = (user: unknown): user is User => {
+  return user !== null && typeof user === 'object' && 'username' in user && typeof (user as { username: unknown }).username === 'string';
 };

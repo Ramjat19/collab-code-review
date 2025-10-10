@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, X, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { notificationAPI } from '../api';
-import type { Notification, NotificationResponse } from '../types';
+import type { Notification } from '../types';
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -17,7 +17,7 @@ const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, onClose
   const [hasMore, setHasMore] = useState(true);
 
   // Fetch notifications
-  const fetchNotifications = async (pageNum: number = 1, append: boolean = false) => {
+  const fetchNotifications = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     try {
       setLoading(true);
       const response = await notificationAPI.getNotifications(pageNum, 20);
@@ -41,7 +41,7 @@ const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, onClose
     } finally {
       setLoading(false);
     }
-  };
+  }, [onUnreadCountChange]);
 
   // Load notifications when drawer opens
   useEffect(() => {
@@ -49,7 +49,7 @@ const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, onClose
       fetchNotifications(1, false);
       setPage(1);
     }
-  }, [isOpen]);
+  }, [isOpen, fetchNotifications]);
 
   // Listen for real-time notifications
   useEffect(() => {
@@ -70,7 +70,7 @@ const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, onClose
     return () => {
       window.removeEventListener('newNotification', handleNewNotification as EventListener);
     };
-  }, []);
+  }, [onUnreadCountChange]);
 
   // Mark as read
   const markAsRead = async (id: string) => {

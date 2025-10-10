@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import API from "../api";
 import ProjectList from "../components/ProjectList";
 import type { Project } from "../types/models";

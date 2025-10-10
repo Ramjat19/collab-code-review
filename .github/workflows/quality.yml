@@ -1,0 +1,168 @@
+name: Code Quality & Documentation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better analysis
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install backend dependencies
+      run: npm ci
+      working-directory: ./backend
+
+    - name: Install frontend dependencies
+      run: npm ci
+      working-directory: ./frontend/frontend
+
+    - name: Backend - ESLint Analysis
+      run: |
+        npx eslint src --format json --output-file eslint-report.json || true
+        npx eslint src --format table
+      working-directory: ./backend
+      continue-on-error: true
+
+    - name: Frontend - ESLint Analysis
+      run: |
+        npx eslint src --format json --output-file eslint-report.json || true
+        npx eslint src --format table
+      working-directory: ./frontend/frontend
+      continue-on-error: true
+
+    - name: Backend - Type Check
+      run: npx tsc --noEmit
+      working-directory: ./backend
+      continue-on-error: true
+
+    - name: Frontend - Type Check
+      run: npx tsc -b --noEmit
+      working-directory: ./frontend/frontend
+      continue-on-error: true
+
+    - name: Complexity Analysis
+      run: |
+        npm install -g complexity-report
+        echo "Backend complexity:"
+        cr --format json backend/src || true
+        echo "Frontend complexity:"
+        cr --format json frontend/frontend/src || true
+      continue-on-error: true
+
+  documentation-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for README files
+      run: |
+        echo "Checking for documentation files..."
+        ls -la README.md
+        ls -la docs/ || echo "No docs directory found"
+        ls -la backend/README.md || echo "No backend README found"
+        ls -la frontend/frontend/README.md || echo "No frontend README found"
+
+    - name: Check API documentation
+      run: |
+        echo "Checking API documentation..."
+        if [ -f "docs/api-spec.json" ]; then
+          echo "✅ OpenAPI specification found"
+          jq . docs/api-spec.json > /dev/null && echo "✅ Valid JSON format"
+        else
+          echo "❌ No API specification found"
+        fi
+        
+        if [ -f "docs/postman-collection.json" ]; then
+          echo "✅ Postman collection found"
+        else
+          echo "❌ No Postman collection found"
+        fi
+
+    - name: Check for inline documentation
+      run: |
+        echo "Checking for JSDoc comments in backend..."
+        grep -r "\/\*\*" backend/src || echo "No JSDoc comments found in backend"
+        
+        echo "Checking for TSDoc comments in frontend..."
+        grep -r "\/\*\*" frontend/frontend/src || echo "No TSDoc comments found in frontend"
+
+  performance-audit:
+    name: Performance Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install frontend dependencies
+      run: npm ci
+      working-directory: ./frontend/frontend
+
+    - name: Build frontend for audit
+      run: npm run build
+      working-directory: ./frontend/frontend
+
+    - name: Install Lighthouse
+      run: npm install -g @lhci/cli
+
+    - name: Bundle size analysis
+      run: |
+        echo "Frontend bundle analysis:"
+        du -sh frontend/frontend/dist/*
+        echo "Checking for large files (>1MB):"
+        find frontend/frontend/dist -type f -size +1M -exec ls -lh {} \; || echo "No large files found"
+
+  code-metrics:
+    name: Code Metrics
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Count lines of code
+      run: |
+        echo "📊 Code Statistics:"
+        echo "==================="
+        
+        echo "Backend:"
+        echo "- TypeScript files: $(find backend/src -name '*.ts' | wc -l)"
+        echo "- Lines of code: $(find backend/src -name '*.ts' -exec cat {} \; | wc -l)"
+        echo "- Test files: $(find backend/tests -name '*.ts' | wc -l)"
+        
+        echo -e "\nFrontend:"
+        echo "- TypeScript/React files: $(find frontend/frontend/src -name '*.ts' -o -name '*.tsx' | wc -l)"
+        echo "- Lines of code: $(find frontend/frontend/src -name '*.ts' -o -name '*.tsx' -exec cat {} \; | wc -l)"
+        
+        echo -e "\nDocumentation:"
+        echo "- Documentation files: $(find docs -name '*.md' -o -name '*.json' | wc -l || echo 0)"
+        echo "- README files: $(find . -name 'README.md' | wc -l)"
+
+    - name: Generate dependency tree
+      run: |
+        echo "Backend dependencies:"
+        cd backend && npm ls --depth=0 || true
+        echo -e "\nFrontend dependencies:"
+        cd frontend/frontend && npm ls --depth=0 || true

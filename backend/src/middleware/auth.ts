@@ -12,13 +12,19 @@ const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => 
     return res.status(401).json({ message: "No token, authorization denied" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const tokenParts = authHeader.split(" ");
+  const token = tokenParts[1];
+  
+  if (!token) {
+    return res.status(401).json({ message: "Invalid token format" });
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    const secret = process.env.JWT_SECRET || 'default-secret-for-development';
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({ message: "Token is not valid" });
   }
 };

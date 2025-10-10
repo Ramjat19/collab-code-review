@@ -75,7 +75,7 @@ router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, re
       return;
     }
 
-    let filter: any = { repository: projectId };
+    const filter: any = { repository: projectId };
     
     // Status filter
     if (status && status !== 'all') {

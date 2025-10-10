@@ -57,7 +57,7 @@ class SocketService {
         socket.username = decoded.username;
         
         next();
-      } catch (error) {
+      } catch {
         next(new Error('Authentication error: Invalid token'));
       }
     });
@@ -106,12 +106,15 @@ class SocketService {
           const roomSockets = await this.io.in(roomId).fetchSockets();
           socket.emit('room-participants', {
             count: roomSockets.length,
-            participants: roomSockets.map(s => ({
-              userId: (s as AuthenticatedSocket).userId,
-              username: (s as AuthenticatedSocket).username
-            }))
+            participants: roomSockets.map(s => {
+              const sock = s as unknown as AuthenticatedSocket;
+               return {
+                userId: sock.userId,
+                username: sock.username
+              };
+            })
           });
-          
+
         } catch (error) {
           console.error('Error joining PR room:', error);
           socket.emit('error', { message: 'Failed to join PR room' });

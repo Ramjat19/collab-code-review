@@ -29,7 +29,11 @@ router.get('/', auth, async (req: AuthRequest, res) => {
 router.patch('/:id/read', auth, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const success = await NotificationService.markAsRead(id, req.user.id);
+    const userId = req.user?.id;
+    if (!userId || !id) {
+      return res.status(400).json({ message: 'Missing required parameters' });
+    }
+    const success = await NotificationService.markAsRead(id, userId);
     
     if (success) {
       res.json({
@@ -73,7 +77,11 @@ router.patch('/read-all', auth, async (req: AuthRequest, res) => {
 router.delete('/:id', auth, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const success = await NotificationService.deleteNotification(id, req.user.id);
+    const userId = req.user?.id;
+    if (!userId || !id) {
+      return res.status(400).json({ message: 'Missing required parameters' });
+    }
+    const success = await NotificationService.deleteNotification(id, userId);
     
     if (success) {
       res.json({

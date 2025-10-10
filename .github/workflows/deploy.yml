@@ -1,0 +1,89 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    environment:
+      name: production
+      url: https://your-domain.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/frontend/package-lock.json
+
+    - name: Install backend dependencies
+      run: npm ci
+      working-directory: ./backend
+
+    - name: Install frontend dependencies
+      run: npm ci
+      working-directory: ./frontend/frontend
+
+    - name: Build backend
+      run: npm run build
+      working-directory: ./backend
+
+    - name: Build frontend
+      run: npm run build
+      working-directory: ./frontend/frontend
+      env:
+        VITE_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+
+    - name: Deploy to server
+      run: |
+        echo "🚀 Deploying to production..."
+        echo "This is where you would deploy to your server"
+        echo "Examples:"
+        echo "- Upload to AWS S3/CloudFront"
+        echo "- Deploy to Heroku"
+        echo "- Copy to VPS via SSH"
+        echo "- Deploy to Docker containers"
+        
+    # Example deployment steps (uncomment and configure as needed):
+    
+    # - name: Deploy to Heroku
+    #   uses: akhileshns/heroku-deploy@v3.12.12
+    #   with:
+    #     heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+    #     heroku_app_name: "your-app-name"
+    #     heroku_email: "your-email@example.com"
+    #     usedocker: true
+    
+    # - name: Deploy to AWS S3
+    #   run: |
+    #     aws s3 sync frontend/frontend/dist/ s3://${{ secrets.S3_BUCKET }} --delete
+    #   env:
+    #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    
+    # - name: Deploy backend to server
+    #   uses: appleboy/ssh-action@v0.1.5
+    #   with:
+    #     host: ${{ secrets.HOST }}
+    #     username: ${{ secrets.USERNAME }}
+    #     key: ${{ secrets.PRIVATE_KEY }}
+    #     script: |
+    #       cd /path/to/your/app
+    #       git pull origin main
+    #       npm ci --production
+    #       npm run build
+    #       pm2 restart your-app

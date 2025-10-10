@@ -52,8 +52,9 @@ const PullRequestList: React.FC = () => {
       });
       setPullRequests(response.data.pullRequests);
       setPagination(response.data.pagination);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch pull requests');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to fetch pull requests');
     } finally {
       if (!isSearchCall) {
         setLoading(false);
@@ -76,14 +77,14 @@ const PullRequestList: React.FC = () => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]); // Remove debouncedSearchQuery from dependencies
+  }, [searchQuery, debouncedSearchQuery, projectId, fetchPullRequests]);
 
   // Initial fetch and fetch when filters change (but not search)
   useEffect(() => {
     if (projectId) {
       fetchPullRequests(1);
     }
-  }, [projectId, statusFilter, assignedFilter]); // Remove fetchPullRequests dependency
+  }, [projectId, statusFilter, assignedFilter, fetchPullRequests]);
 
   // Keyboard shortcut for search focus
   useEffect(() => {

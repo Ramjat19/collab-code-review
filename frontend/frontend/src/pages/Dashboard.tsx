@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 import API from "../api";
 
 export default function Dashboard() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{
+    id: string;
+    username: string;
+    email: string;
+  } | null>(null);
   const [stats, setStats] = useState({ projects: 0, snippets: 0 });
 
   useEffect(() => {

@@ -33,8 +33,9 @@ const PullRequestDetail: React.FC = () => {
         setLoading(true);
       const response = await pullRequestAPI.getById(prId!);
       setPullRequest(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch pull request');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to fetch pull request');
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ const PullRequestDetail: React.FC = () => {
       joinPRRoom(prId, projectId);
 
       // Set up comment listeners
-      onCommentAdded((data: any) => {
+      onCommentAdded((data) => {
         // Add new comment to local state
         setPullRequest(prev => prev ? {
           ...prev,
@@ -61,11 +62,11 @@ const PullRequestDetail: React.FC = () => {
         } : null);
       });
 
-      onUserJoined((data: any) => {
+      onUserJoined((data) => {
         console.log(`${data.username} joined the PR room`);
       });
 
-      onUserLeft((data: any) => {
+      onUserLeft((data) => {
         console.log(`${data.username} left the PR room`);
       });
 
@@ -94,8 +95,9 @@ const PullRequestDetail: React.FC = () => {
       setNewComment('');
       setSelectedLine(null);
       await fetchPullRequest(); // Refresh to get new comment
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to add comment');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to add comment');
     } finally {
       setSubmittingComment(false);
     }
@@ -107,8 +109,9 @@ const PullRequestDetail: React.FC = () => {
     try {
       await pullRequestAPI.submitReview(pullRequest._id, { decision });
       await fetchPullRequest(); // Refresh to get updated review status
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to submit review');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to submit review');
     }
   };
 
@@ -122,10 +125,11 @@ const PullRequestDetail: React.FC = () => {
     try {
       setUpdatingStatus(true);
       await pullRequestAPI.updateStatus(pullRequest!._id, newStatus);
-      setPullRequest(prev => prev ? { ...prev, status: newStatus as any } : null);
-    } catch (err: any) {
-      console.error('Failed to update status:', err);
-      alert('Failed to update PR status: ' + (err.response?.data?.message || err.message));
+      setPullRequest(prev => prev ? { ...prev, status: newStatus as PullRequest['status'] } : null);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      console.error('Failed to update status:', error);
+      alert('Failed to update PR status: ' + (error.response?.data?.message || error.message));
     } finally {
       setUpdatingStatus(false);
     }
@@ -520,8 +524,9 @@ const PullRequestDetail: React.FC = () => {
                 setSelectedLine(null);
                 fetchPullRequest(); // Refresh to get new comment
               })
-              .catch((err: any) => {
-                setError(err.response?.data?.message || 'Failed to add comment');
+              .catch((err: unknown) => {
+                const error = err as { response?: { data?: { message?: string } } };
+                setError(error.response?.data?.message || 'Failed to add comment');
               });
           }}
           lineNumber={selectedLine.lineNumber}

@@ -2,6 +2,7 @@ import { Router } from "express";
 import authMiddleware, { AuthRequest } from "../middleware/auth";
 import Project from "../models/Project";
 import User from "../models/User";
+import mongoose from "mongoose";
 
 const router = Router();
 
@@ -38,11 +39,11 @@ router.post("/:id/collaborators", authMiddleware, async (req: AuthRequest, res) 
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Prevent duplicates
-    if (project.collaborators.includes(user._id)) {
+    if (project.collaborators.includes(user._id as mongoose.Types.ObjectId)) {
       return res.status(400).json({ message: "User already a collaborator" });
     }
 
-    project.collaborators.push(user._id);
+    project.collaborators.push(user._id as mongoose.Types.ObjectId);
     await project.save();
     res.json({ message: "Collaborator added", project });
   } catch (err) {

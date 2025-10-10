@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 // Import common language syntaxes
@@ -13,7 +12,7 @@ import 'prismjs/components/prism-csharp';
 import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-markdown';
-import type { FileChange } from '../types';
+import type { FileChange, Comment } from '../types';
 import InlineComment from './InlineComment';
 import { useSocket } from '../hooks/useSocket';
 
@@ -21,15 +20,8 @@ interface DiffViewerProps {
   fileChange: FileChange;
   pullRequestId?: string;
   onLineClick?: (lineNumber: number, filePath: string) => void;
-  comments?: Array<{
-    _id: string;
-    lineNumber: number;
-    text: string;
-    author: { username: string; email: string };
-    createdAt: string;
-    filePath?: string;
-  }>;
-  onCommentAdded?: (comment: any) => void;
+  comments?: Comment[];
+  onCommentAdded?: (comment: Comment) => void;
 }
 
 interface LineData {
@@ -59,9 +51,19 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
 
   useEffect(() => {
     if (pullRequestId) {
-      onSocketCommentAdded((data: any) => {
+      onSocketCommentAdded((data) => {
         if (data.filePath === fileChange.path && onCommentAdded) {
-          onCommentAdded(data.comment);
+          // Convert socket comment to Comment type
+          const comment: Comment = {
+            _id: data.comment._id,
+            text: data.comment.text,
+            author: data.comment.author,
+            createdAt: data.comment.createdAt,
+            updatedAt: data.comment.createdAt, // Use createdAt as updatedAt for new comments
+            filePath: data.comment.filePath,
+            lineNumber: data.comment.lineNumber
+          };
+          onCommentAdded(comment);
         }
       });
     }
@@ -130,24 +132,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     setCommentPosition(null);
   };
 
-  const getLanguageFromExtension = (filePath: string): string => {
-    const ext = filePath.split('.').pop()?.toLowerCase();
-    const languageMap: Record<string, string> = {
-      'js': 'javascript',
-      'jsx': 'jsx',
-      'ts': 'typescript',
-      'tsx': 'tsx',
-      'py': 'python',
-      'java': 'java',
-      'cs': 'csharp',
-      'css': 'css',
-      'json': 'json',
-      'md': 'markdown',
-      'html': 'markup',
-      'xml': 'markup',
-    };
-    return languageMap[ext || ''] || 'text';
-  };
+
 
   const generateDiffLines = (): LineData[] => {
     const { oldContent, newContent, changeType } = fileChange;
@@ -234,20 +219,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
   };
 
   const diffLines = generateDiffLines();
-  const language = getLanguageFromExtension(fileChange.path);
+  // const language = getLanguageFromExtension(fileChange.path); // For future syntax highlighting
 
-  const getLineStyle = (type: string) => {
-    switch (type) {
-      case 'added':
-        return 'bg-green-50 border-l-4 border-green-500 text-green-900';
-      case 'removed':
-        return 'bg-red-50 border-l-4 border-red-500 text-red-900';
-      case 'unchanged':
-        return 'bg-gray-50 hover:bg-gray-100';
-      default:
-        return 'hover:bg-gray-100';
-    }
-  };
+  
 
   const getLinePrefix = (type: string) => {
     switch (type) {
