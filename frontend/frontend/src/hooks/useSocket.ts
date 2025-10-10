@@ -53,7 +53,7 @@ export const useSocket = (): UseSocketReturn => {
     }
 
     // Initialize socket connection
-    socketRef.current = io('http://localhost:4000', {
+    socketRef.current = io(`${import.meta.env.VITE_BASE_API}`, {
       auth: {
         token: token
       },

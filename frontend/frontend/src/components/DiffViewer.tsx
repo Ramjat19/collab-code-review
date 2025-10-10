@@ -91,7 +91,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     setIsSubmittingComment(true);
     try {
       // Send comment via HTTP API
-      const response = await fetch(`http://localhost:4000/api/pull-requests/${pullRequestId}/comments`, {
+      const response = await fetch(`${import.meta.env.VITE_BASE_API}/api/pull-requests/${pullRequestId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

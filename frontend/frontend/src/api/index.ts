@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import type { PullRequest, CreatePullRequestData, Comment } from "../types";
 
 const API = axios.create({
-  baseURL: "http://localhost:4000/api",
+  baseURL: `${import.meta.env.VITE_BASE_API}/api`,
   timeout: 10000, // 10 second timeout
 });
 
