@@ -1,6 +1,7 @@
 import { body, param, query, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import { sanitizeRegexInput as securitySanitizeRegex } from '../utils/security';
 
 // Custom validation functions
 const isValidObjectId = (value: string) => {
@@ -10,6 +11,9 @@ const isValidObjectId = (value: string) => {
 const isValidProjectId = (value: string) => {
   return value === 'global' || value === 'default' || isValidObjectId(value);
 };
+
+// Utility function to sanitize regex input to prevent ReDoS attacks
+export const sanitizeRegexInput = securitySanitizeRegex;
 
 // Validation result handler
 export const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
@@ -146,5 +150,32 @@ export const validateProjectQuery = [
     .optional()
     .custom(isValidProjectId)
     .withMessage('Invalid project ID in query'),
+  handleValidationErrors
+];
+
+// Pull Request Query Validation
+export const validatePRQuery = [
+  query('search')
+    .optional()
+    .isLength({ max: 100 })
+    .withMessage('Search query cannot exceed 100 characters')
+    .matches(/^[a-zA-Z0-9\s\-_.,!?'"()]+$/)
+    .withMessage('Search query contains invalid characters'),
+  query('status')
+    .optional()
+    .isIn(['open', 'closed', 'merged', 'all'])
+    .withMessage('Status must be open, closed, merged, or all'),
+  query('assignedTo')
+    .optional()
+    .isIn(['me', 'unassigned'])
+    .withMessage('AssignedTo must be me or unassigned'),
+  query('page')
+    .optional()
+    .isInt({ min: 1, max: 1000 })
+    .withMessage('Page must be between 1 and 1000'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100'),
   handleValidationErrors
 ];
