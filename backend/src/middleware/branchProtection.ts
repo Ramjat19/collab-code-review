@@ -288,11 +288,15 @@ const checkCIStatus = async (pr: any, requiredChecks: string[] = []) => {
 /**
  * Mock branch up-to-date check
  */
-const checkBranchUpToDate = async (_pr: any) => {
-  // Mock implementation - replace with actual Git API calls
+const checkBranchUpToDate = async (pr: any) => {
+  // Mock implementation - deterministic for demo purposes
+  // In production, replace with actual Git API calls to check if branch is behind target
+  const prId = pr._id?.toString() || pr.id?.toString() || '';
+  const hash = prId.charCodeAt(prId.length - 1) % 10;
+  
   return {
-    satisfied: Math.random() > 0.3, // 70% chance of being up to date
-    behindBy: Math.random() > 0.3 ? 0 : Math.floor(Math.random() * 5) + 1
+    satisfied: hash < 8, // 80% of PRs will be up-to-date (deterministic based on PR ID)
+    behindBy: hash >= 8 ? (hash % 3) + 1 : 0 // 1-3 commits behind if not up-to-date
   };
 };
 
@@ -316,7 +320,7 @@ export const checkBypassPermission = async (
     }
 
     // Admin bypass - log for audit
-    console.log(`Admin bypass: ${user?.username} bypassed branch protection for PR ${req.params.pullRequestId}`);
+    console.log(`Admin bypass: ${user?.username} bypassed branch protection for PR ${req.params.id}`);
     next();
   } catch (error) {
     console.error('Bypass permission check error:', error);

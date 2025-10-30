@@ -259,7 +259,7 @@ const BranchProtectionSettings: React.FC<BranchProtectionSettingsProps> = ({
                 onChange={(e) => updateRule('requireReviews', e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <span>Require review from code owners</span>
+              <span>Require pull request reviews before merging</span>
             </label>
             
             <div className="flex items-center space-x-3">
@@ -291,7 +291,7 @@ const BranchProtectionSettings: React.FC<BranchProtectionSettingsProps> = ({
                 onChange={(e) => updateRule('requireCodeOwnerReviews', e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <span>Require review from code owners</span>
+              <span>Require review from code owners specifically</span>
             </label>
           </div>
         </section>

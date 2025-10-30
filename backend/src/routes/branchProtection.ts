@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { 
   getBranchProtectionStatus, 
   validatePRRequirements,
@@ -9,13 +10,28 @@ import authMiddleware from '../middleware/auth';
 import PullRequestModel from '../models/PullRequest';
 import BranchProtectionRule from '../models/BranchProtectionRule';
 
+// Rate limiting middleware
+const createLimiter = (windowMs: number, max: number, message: string) =>
+  rateLimit({
+    windowMs,
+    max,
+    message: { error: message },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+// Different rate limits for different operations
+const readLimiter = createLimiter(15 * 60 * 1000, 100, 'Too many read requests'); // 100 per 15min
+const writeLimiter = createLimiter(15 * 60 * 1000, 50, 'Too many write requests'); // 50 per 15min
+const mergeLimiter = createLimiter(15 * 60 * 1000, 10, 'Too many merge attempts'); // 10 per 15min
+
 const router = express.Router();
 
 /**
  * GET /api/pull-requests/:id/protection-status
  * Get branch protection status for a pull request
  */
-router.get('/pull-requests/:id/protection-status', authMiddleware, async (req, res) => {
+router.get('/pull-requests/:id/protection-status', readLimiter, authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -59,7 +75,7 @@ router.get('/pull-requests/:id/protection-status', authMiddleware, async (req, r
  * POST /api/branch-protection/merge/:id
  * Merge a pull request (with branch protection validation)
  */
-router.post('/merge/:id', authMiddleware, validatePRRequirements, async (req, res) => {
+router.post('/merge/:id', mergeLimiter, authMiddleware, validatePRRequirements, async (req, res) => {
   try {
     const { id } = req.params;
     const { mergeMethod = 'merge' } = req.body; // merge, squash, rebase
@@ -82,7 +98,9 @@ router.post('/merge/:id', authMiddleware, validatePRRequirements, async (req, re
 
     // Log the merge action
     const branchProtectionStatus = (req as any).branchProtectionStatus;
-    console.log(`PR ${id} merged by user ${(req as any).user.id}`, {
+    const userId = (req as any).user?.id || 'unknown';
+    const safeId = String(id).replace(/[^\w-]/g, ''); // Sanitize ID
+    console.log(`PR ${safeId} merged by user ${userId}`, {
       method: mergeMethod,
       branchProtection: branchProtectionStatus,
       sourceBranch: pr.sourceBranch,
@@ -106,7 +124,7 @@ router.post('/merge/:id', authMiddleware, validatePRRequirements, async (req, re
  * POST /api/branch-protection/force-merge/:id
  * Force merge a pull request (bypass protection - admin only)
  */
-router.post('/force-merge/:id', authMiddleware, checkBypassPermission, async (req, res) => {
+router.post('/force-merge/:id', mergeLimiter, authMiddleware, checkBypassPermission, async (req, res) => {
   try {
     const { id } = req.params;
     const { reason, mergeMethod = 'merge' } = req.body;
@@ -122,8 +140,11 @@ router.post('/force-merge/:id', authMiddleware, checkBypassPermission, async (re
     await pr.save();
 
     // Log the force merge with reason
-    console.log(`FORCE MERGE: PR ${id} force-merged by user ${(req as any).user.id}`, {
-      reason,
+    const userId = (req as any).user?.id || 'unknown';
+    const safeId = String(id).replace(/[^\w-]/g, ''); // Sanitize ID
+    const safeReason = String(reason || '').replace(/[^\w\s.-]/g, ''); // Sanitize reason
+    console.log(`FORCE MERGE: PR ${safeId} force-merged by user ${userId}`, {
+      reason: safeReason,
       method: mergeMethod,
       sourceBranch: pr.sourceBranch,
       targetBranch: pr.targetBranch,
@@ -149,7 +170,7 @@ router.post('/force-merge/:id', authMiddleware, checkBypassPermission, async (re
  * GET /api/branch-protection/config
  * Get branch protection configuration
  */
-router.get('/branch-protection/config', authMiddleware, (req, res) => {
+router.get('/branch-protection/config', readLimiter, authMiddleware, (req, res) => {
   // In production, this would come from database or config file
   const config = {
     protectedBranches: ['main', 'master', 'develop', 'production'],
@@ -209,10 +230,14 @@ router.post('/request-review/:id', authMiddleware, async (req, res) => {
 });
 
 // GET /api/branch-protection/rules - Get branch protection rules
-router.get('/rules', async (req, res) => {
+router.get('/rules', readLimiter, authMiddleware, async (req, res) => {
   try {
     const { projectId } = req.query;
-    const pid = projectId || 'global';
+    
+    // Validate and sanitize projectId
+    const pid = typeof projectId === 'string' && /^[a-f0-9]{24}|global|default$/.test(projectId) 
+      ? projectId 
+      : 'global';
     
     // Find existing rules for the project
     let rules = await BranchProtectionRule.findOne({ 
@@ -256,17 +281,22 @@ router.get('/rules', async (req, res) => {
 });
 
 // PUT /api/branch-protection/rules - Update branch protection rules
-router.put('/rules', async (req, res) => {
+router.put('/rules', writeLimiter, authMiddleware, async (req, res) => {
   try {
     const { projectId, rules: ruleUpdates, branchPattern } = req.body;
     
-    // Validate input
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+    // Validate and sanitize input
+    if (!projectId || typeof projectId !== 'string') {
+      return res.status(400).json({ error: 'Valid Project ID is required' });
     }
 
-    if (!ruleUpdates) {
-      return res.status(400).json({ error: 'Rules data is required' });
+    // Validate projectId format
+    if (!/^[a-f0-9]{24}|global|default$/.test(projectId)) {
+      return res.status(400).json({ error: 'Invalid Project ID format' });
+    }
+
+    if (!ruleUpdates || typeof ruleUpdates !== 'object') {
+      return res.status(400).json({ error: 'Rules data is required and must be an object' });
     }
 
     // Find existing rules for the project
