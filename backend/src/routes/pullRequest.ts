@@ -1,5 +1,11 @@
 import express, { Response } from 'express';
 import authMiddleware, { AuthRequest } from '../middleware/auth';
+import { 
+  validateCreatePR, 
+  validatePRReview, 
+  validateObjectId 
+} from '../middleware/validation';
+import { strictLimiter } from '../middleware/security';
 import PullRequest from '../models/PullRequest';
 import Project from '../models/Project';
 import { NotificationService } from '../services/NotificationService';
@@ -7,7 +13,7 @@ import { NotificationService } from '../services/NotificationService';
 const router = express.Router();
 
 // Create a new pull request
-router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', strictLimiter, authMiddleware, validateCreatePR, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { 
       title, 
@@ -276,7 +282,7 @@ router.post("/:id/comments", authMiddleware, async (req: AuthRequest, res: Respo
 });
 
 // Submit review decision
-router.post("/:id/review", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post("/:id/review", strictLimiter, authMiddleware, validatePRReview, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { decision, comment } = req.body;
     const pullRequest = await PullRequest.findById(req.params.id);

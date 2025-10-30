@@ -1,6 +1,14 @@
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
+import { 
+  corsConfig, 
+  helmetConfig, 
+  generalLimiter, 
+  speedLimiter, 
+  securityHeaders, 
+  requestSizeLimiter 
+} from "./middleware/security";
 import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import projectRoutes from "./routes/project";
@@ -18,18 +26,19 @@ export function createApp() {
   // Initialize Socket.IO service
   const socketService = new SocketService(server);
 
-  // Middleware
-  app.use(cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174", 
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:5174",
-      "https://collab-code-review-5gi4vw7jd-ram-prasads-projects-12031425.vercel.app"
-    ],
-    credentials: true
-  }));
-  app.use(express.json());
+  // Security Middleware (order matters!)
+  app.use(helmetConfig); // Security headers
+  app.use(securityHeaders); // Additional custom security headers
+  app.use(corsConfig); // CORS policy
+  app.use(requestSizeLimiter); // Request size limiting
+  // Note: Rate limiting now applied per-route for better control
+  
+  // Body parsing middleware
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  
+  // Trust proxy for accurate IP addresses (important for rate limiting)
+  app.set('trust proxy', 1);
 
   // Routes
   app.get("/", (req, res) => {
@@ -38,11 +47,11 @@ export function createApp() {
   
   app.use("/health", healthRoutes);
   app.use("/api/auth", authRoutes);
-  app.use("/api/projects", projectRoutes);
-  app.use("/api/snippets", snippetRoutes);
-  app.use("/api/pull-requests", pullRequestRoutes);
-  app.use("/api/notifications", notificationRoutes);
-  app.use("/api/users", userRoutes);
+  app.use("/api/projects", generalLimiter, projectRoutes);
+  app.use("/api/snippets", generalLimiter, snippetRoutes);
+  app.use("/api/pull-requests", generalLimiter, pullRequestRoutes);
+  app.use("/api/notifications", generalLimiter, notificationRoutes);
+  app.use("/api/users", generalLimiter, userRoutes);
   app.use("/api/branch-protection", branchProtectionRoutes);
 
   return { app, server, socketService };

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { 
   getBranchProtectionStatus, 
@@ -7,6 +7,13 @@ import {
   isProtectedBranch 
 } from '../middleware/branchProtection';
 import authMiddleware from '../middleware/auth';
+import { 
+  validateMerge, 
+  validateForceMerge, 
+  validateObjectId, 
+  validateBranchProtectionRules,
+  validateProjectQuery
+} from '../middleware/validation';
 import PullRequestModel from '../models/PullRequest';
 import BranchProtectionRule from '../models/BranchProtectionRule';
 
@@ -75,7 +82,7 @@ router.get('/pull-requests/:id/protection-status', readLimiter, authMiddleware, 
  * POST /api/branch-protection/merge/:id
  * Merge a pull request (with branch protection validation)
  */
-router.post('/merge/:id', mergeLimiter, authMiddleware, validatePRRequirements, async (req, res) => {
+router.post('/merge/:id', mergeLimiter, authMiddleware, validateMerge, validatePRRequirements, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { mergeMethod = 'merge' } = req.body; // merge, squash, rebase
