@@ -1,58 +1,115 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import authMiddleware, { AuthRequest } from "../middleware/auth";
+import { validateLogin, validateSignup } from "../middleware/validation";
+import { authLimiter } from "../middleware/security";
 
 const router = Router();
 
 // Register
-router.post("/signup", async (req, res) => {
+router.post("/signup", authLimiter, validateSignup, async (req: AuthRequest, res: Response) => {
   try {
     const { username, email, password } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ 
+        error: "User already exists",
+        message: "An account with this email already exists" 
+      });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with higher rounds for better security
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
     const newUser = new User({ username, email, password: hashedPassword });
     await newUser.save();
 
-    res.status(201).json({ message: "User registered successfully" });
+    // Log successful registration (without sensitive data)
+    console.log(`New user registered: ${username} (${email})`);
+
+    res.status(201).json({ 
+      message: "User registered successfully",
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email
+      }
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error('Registration error:', err);
+    res.status(500).json({ 
+      error: "Registration failed",
+      message: "Unable to create account. Please try again later." 
+    });
   }
 });
 
 // Login
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, validateLogin, async (req: AuthRequest, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    // Find user and include password for comparison
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      // Log failed login attempt (don't specify if email exists or not)
+      console.log(`Failed login attempt for email: ${email} from IP: ${req.ip}`);
+      return res.status(401).json({ 
+        error: "Invalid credentials",
+        message: "Email or password is incorrect" 
+      });
+    }
 
-    // Compare password
+    // Compare password with timing-safe comparison
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    if (!isMatch) {
+      console.log(`Failed password for user: ${user.username} from IP: ${req.ip}`);
+      return res.status(401).json({ 
+        error: "Invalid credentials",
+        message: "Email or password is incorrect" 
+      });
+    }
 
-    // Generate JWT
+    // Generate JWT with stronger settings
     const token = jwt.sign(
-      { id: user._id, email: user.email, username: user.username },
+      { 
+        id: user._id, 
+        email: user.email, 
+        username: user.username,
+        iat: Math.floor(Date.now() / 1000)
+      },
       process.env.JWT_SECRET as string,
-      { expiresIn: "1h" }
+      { 
+        expiresIn: "24h",
+        issuer: "collab-code-review",
+        audience: "collab-code-review-users"
+      }
     );
 
-    res.json({ message: "Login successful", token });
+    // Log successful login
+    console.log(`Successful login: ${user.username} from IP: ${req.ip}`);
+
+    res.json({ 
+      message: "Login successful", 
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      },
+      expiresIn: "24h"
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error('Login error:', err);
+    res.status(500).json({ 
+      error: "Login failed",
+      message: "Unable to process login. Please try again later." 
+    });
   }
 });
 
