@@ -3,7 +3,9 @@ import authMiddleware, { AuthRequest } from '../middleware/auth';
 import { 
   validateCreatePR, 
   validatePRReview, 
-  validateObjectId 
+  validateObjectId,
+  validatePRQuery,
+  sanitizeRegexInput
 } from '../middleware/validation';
 import { strictLimiter } from '../middleware/security';
 import PullRequest from '../models/PullRequest';
@@ -64,7 +66,7 @@ router.post('/', strictLimiter, authMiddleware, validateCreatePR, async (req: Au
 });
 
 // Get pull requests for a repository/project
-router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/repository/:projectId', authMiddleware, validatePRQuery, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { projectId } = req.params;
     const { status, search, assignedTo, page = 1, limit = 10, simple } = req.query;
@@ -83,21 +85,22 @@ router.get('/repository/:projectId', authMiddleware, async (req: AuthRequest, re
 
     const filter: any = { repository: projectId };
     
-    // Status filter
-    if (status && status !== 'all') {
+    // Status filter - ensure it's a string to prevent NoSQL injection
+    if (status && typeof status === 'string' && status !== 'all') {
       filter.status = status;
     }
     
-    // Search filter (title and description)
-    if (search) {
+    // Search filter (title and description) - sanitized to prevent ReDoS
+    if (search && typeof search === 'string') {
+      const sanitizedSearch = sanitizeRegexInput(search);
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { title: { $regex: sanitizedSearch, $options: 'i' } },
+        { description: { $regex: sanitizedSearch, $options: 'i' } }
       ];
     }
     
-    // Assigned to filter
-    if (assignedTo) {
+    // Assigned to filter - ensure it's a string to prevent NoSQL injection
+    if (assignedTo && typeof assignedTo === 'string') {
       if (assignedTo === 'me') {
         filter.assignedReviewers = req.user.id;
       } else if (assignedTo === 'unassigned') {

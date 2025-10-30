@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import authMiddleware, { AuthRequest } from "../middleware/auth";
 import { validateLogin, validateSignup } from "../middleware/validation";
 import { authLimiter } from "../middleware/security";
+import { validateSecureStrings, logSecurityEvent } from "../utils/security";
 
 const router = Router();
 
@@ -12,6 +13,16 @@ const router = Router();
 router.post("/signup", authLimiter, validateSignup, async (req: AuthRequest, res: Response) => {
   try {
     const { username, email, password } = req.body;
+
+    // Ensure all inputs are strings to prevent NoSQL injection
+    const validation = validateSecureStrings({ email, username, password });
+    if (!validation.isValid) {
+      logSecurityEvent('INVALID_INPUT_TYPE', `Signup attempt with invalid input types: ${validation.invalidFields.join(', ')}`, req);
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "All fields must be strings"
+      });
+    }
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -53,6 +64,16 @@ router.post("/signup", authLimiter, validateSignup, async (req: AuthRequest, res
 router.post("/login", authLimiter, validateLogin, async (req: AuthRequest, res: Response) => {
   try {
     const { email, password } = req.body;
+
+    // Ensure email and password are strings to prevent NoSQL injection
+    const validation = validateSecureStrings({ email, password });
+    if (!validation.isValid) {
+      logSecurityEvent('NOSQL_INJECTION_ATTEMPT', `Login attempt with invalid input types: ${validation.invalidFields.join(', ')}`, req);
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "Email and password must be strings"
+      });
+    }
 
     // Find user and include password for comparison
     const user = await User.findOne({ email }).select('+password');
