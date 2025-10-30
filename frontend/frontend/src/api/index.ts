@@ -107,7 +107,33 @@ export const pullRequestAPI = {
   
   // Remove reviewer
   removeReviewer: (id: string, reviewerId: string) =>
-    API.delete<{ message: string; pullRequest: PullRequest }>(`/pull-requests/${id}/reviewers/${reviewerId}`)
+    API.delete<{ message: string; pullRequest: PullRequest }>(`/pull-requests/${id}/reviewers/${reviewerId}`),
+  
+  // Branch Protection APIs
+  getProtectionStatus: (id: string) =>
+    API.get(`/branch-protection/pull-requests/${id}/protection-status`),
+  
+  mergePR: (id: string, mergeMethod = 'merge') =>
+    API.post(`/branch-protection/merge/${id}`, { mergeMethod }),
+  
+  forceMergePR: (id: string, reason: string, mergeMethod = 'merge') =>
+    API.post(`/branch-protection/force-merge/${id}`, { reason, mergeMethod }),
+  
+  requestReviews: (id: string, reviewerIds: string[], message?: string) =>
+    API.post(`/branch-protection/request-review/${id}`, { reviewerIds, message }),
+
+  // Branch Protection Configuration
+  getBranchProtectionRules: (projectId?: string) =>
+    API.get(`/branch-protection/rules${projectId ? `?projectId=${projectId}` : ''}`),
+    
+  updateBranchProtectionRules: (rules: any) =>
+    API.put('/branch-protection/rules', rules),
+    
+  createBranchProtectionRule: (rule: any) =>
+    API.post('/branch-protection/rules', rule),
+    
+  deleteBranchProtectionRule: (ruleId: string) =>
+    API.delete(`/branch-protection/rules/${ruleId}`)
 };
 
 // User API functions

@@ -306,6 +306,39 @@ router.post("/:id/review", authMiddleware, async (req: AuthRequest, res: Respons
       createdAt: new Date()
     });
 
+    // Auto-update PR status based on review decisions and branch protection rules
+    const approvedReviews = pullRequest.reviewDecisions.filter(review => review.decision === 'approved');
+    const rejectedReviews = pullRequest.reviewDecisions.filter(review => review.decision === 'rejected');
+    
+    // Get required reviewers from branch protection config
+    let requiredReviewers = 1; // Default fallback
+    try {
+      const BranchProtectionRule = require('../models/BranchProtectionRule').default;
+      const projectId = pullRequest.repository?.toString() || 'default';
+      const rules = await BranchProtectionRule.findOne({ 
+        projectId, 
+        isActive: true 
+      });
+      if (rules?.rules?.requiredReviewers) {
+        requiredReviewers = rules.rules.requiredReviewers;
+      }
+    } catch (error) {
+      console.warn('Could not fetch branch protection rules, using default:', error);
+    }
+    
+    // If there are any rejections, keep as 'open'
+    if (rejectedReviews.length > 0) {
+      pullRequest.status = 'open';
+    } 
+    // If we have at least the required number of approvals
+    else if (approvedReviews.length >= requiredReviewers) {
+      pullRequest.status = 'approved';
+    }
+    // Otherwise keep as 'open'
+    else {
+      pullRequest.status = 'open';
+    }
+
     await pullRequest.save();
     
     await pullRequest.populate([

@@ -8,6 +8,7 @@ import snippetRoutes from "./routes/snippet";
 import pullRequestRoutes from "./routes/pullRequest";
 import notificationRoutes from "./routes/notification";
 import userRoutes from "./routes/user";
+import branchProtectionRoutes from "./routes/branchProtection";
 import SocketService from "./services/SocketService";
 
 export function createApp() {
@@ -42,6 +43,7 @@ export function createApp() {
   app.use("/api/pull-requests", pullRequestRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/users", userRoutes);
+  app.use("/api/branch-protection", branchProtectionRoutes);
 
   return { app, server, socketService };
 }
