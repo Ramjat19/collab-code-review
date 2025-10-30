@@ -9,20 +9,39 @@ export const corsConfig = cors({
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
+    // Build allowed origins from env or sensible defaults
+    const envList = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
-      // Add your production domains here
-      process.env.FRONTEND_URL || 'http://localhost:5173'
+      // Common Vercel preview/production domains used for this project
+      'https://collab-code-review.vercel.app',
+      'https://collab-code-review-ram-prasads-projects-12031425.vercel.app',
+      'https://collab-code-review-git-main-ram-prasads-projects-12031425.vercel.app',
+      'https://collab-code-review-77hz1mncv-ram-prasads-projects-12031425.vercel.app',
+      // Allow additional domains via environment variable
+      ...envList
     ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+
+    // Allow subdomains on vercel.app (preview deployments) using regex
+    const allowedRegex = [
+      /https?:\/\/[a-z0-9-]+\.vercel\.app(:\d+)?$/i,
+      /https?:\/\/[a-z0-9-]+\.vercel\.dev(:\d+)?$/i
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedRegex.some(r => r.test(origin))) {
+      return callback(null, true);
     }
+
+    // Log for easier debugging in deployed logs
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
