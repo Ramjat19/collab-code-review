@@ -306,6 +306,23 @@ router.post("/:id/review", authMiddleware, async (req: AuthRequest, res: Respons
       createdAt: new Date()
     });
 
+    // Auto-update PR status based on review decisions
+    const approvedReviews = pullRequest.reviewDecisions.filter(review => review.decision === 'approved');
+    const rejectedReviews = pullRequest.reviewDecisions.filter(review => review.decision === 'rejected');
+    
+    // If there are any rejections, keep as 'open'
+    if (rejectedReviews.length > 0) {
+      pullRequest.status = 'open';
+    } 
+    // If we have at least 1 approval (you can adjust this number based on your requirements)
+    else if (approvedReviews.length >= 1) {
+      pullRequest.status = 'approved';
+    }
+    // Otherwise keep as 'open'
+    else {
+      pullRequest.status = 'open';
+    }
+
     await pullRequest.save();
     
     await pullRequest.populate([

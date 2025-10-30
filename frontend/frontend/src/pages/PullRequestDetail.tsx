@@ -5,6 +5,8 @@ import { pullRequestAPI } from '../api';
 import DiffViewer from '../components/DiffViewer';
 import InlineComment from '../components/InlineComment';
 import ReviewerAssignment from '../components/ReviewerAssignment';
+import BranchProtectionStatus from '../components/BranchProtectionStatus';
+import EnhancedMergeButton from '../components/EnhancedMergeButton';
 import { useSocket } from '../hooks/useSocket';
 import type { PullRequest, Comment } from '../types';
 
@@ -18,6 +20,8 @@ const PullRequestDetail: React.FC = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [selectedLine, setSelectedLine] = useState<{ lineNumber: number; filePath: string } | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [canMerge, setCanMerge] = useState(false);
+  const [isProtected, setIsProtected] = useState(false);
   const { 
     joinPRRoom, 
     leavePRRoom, 
@@ -332,6 +336,41 @@ const PullRequestDetail: React.FC = () => {
             onUpdate={(updatedPR) => setPullRequest(updatedPR)}
           />
         </div>
+
+        {/* Branch Protection Status */}
+        <BranchProtectionStatus
+          pullRequestId={pullRequest._id}
+          onStatusChange={(canMerge: boolean, isProtected: boolean) => {
+            setCanMerge(canMerge);
+            setIsProtected(isProtected);
+          }}
+        />
+
+        {/* Enhanced Merge Section */}
+        {pullRequest.status === 'approved' || pullRequest.status === 'open' ? (
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Merge this pull request</h3>
+            <EnhancedMergeButton
+              pullRequestId={pullRequest._id}
+              canMerge={canMerge}
+              isProtected={isProtected}
+              onMergeSuccess={() => {
+                fetchPullRequest();
+                // Show success message
+                alert('Pull request merged successfully!');
+              }}
+              onMergeError={(error) => {
+                setError(error);
+              }}
+            />
+          </div>
+        ) : pullRequest.status === 'merged' ? (
+          <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+            <div className="text-sm text-purple-700 font-medium">
+              ✅ This pull request has been merged
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Navigation Tabs */}

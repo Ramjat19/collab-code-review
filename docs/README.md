@@ -76,6 +76,32 @@ curl -X GET http://localhost:4000/api/projects \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
+## Branch Protection Rules
+
+Our platform implements comprehensive branch protection rules that ensure code quality through enforced review processes and automated checks.
+
+### Key Features
+- **Real-time Protection Status**: Live validation of merge requirements
+- **Smart Merge Controls**: Context-aware merge buttons with protection awareness  
+- **GitHub Integration**: Seamless integration with GitHub Actions CI/CD pipeline
+- **Admin Override**: Emergency force merge capabilities with audit logging
+
+### Quick Example - Check Protection Status
+```bash
+curl -X GET http://localhost:4000/api/pull-requests/PR_ID/protection-status \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Quick Example - Merge with Protection
+```bash
+curl -X POST http://localhost:4000/api/pull-requests/PR_ID/merge \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mergeMethod": "squash"}'
+```
+
+📖 **For complete setup and configuration guide, see [Branch Protection Documentation](./branch-protection.md)**
+
 ### 3. Pull Request Operations
 
 ```bash
@@ -383,8 +409,14 @@ For additional support:
 - Pagination support
 - Reviewer assignments
 
+### Implemented Features
+- Branch protection rules with local enforcement
+- GitHub Actions CI/CD pipeline
+- Real-time status validation
+- Smart merge controls with protection awareness
+
 ### Upcoming Features
 - Code review templates
-- Automated testing integration
 - Slack/Discord notifications
-- Branch protection rules
+- Advanced analytics and reporting
+- Custom protection rule templates

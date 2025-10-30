@@ -10,6 +10,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import PullRequestList from './pages/PullRequestList';
 import PullRequestDetail from './pages/PullRequestDetail';
 import SimpleGitHubFeatures from './pages/SimpleGitHubFeatures';
+import SettingsPage from './pages/SettingsPage';
 import NotificationBell from './components/NotificationBell';
 import { ErrorProvider } from './contexts/ErrorContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -61,6 +62,9 @@ function App() {
                       </Link>
                       <Link to="/profile" className="text-gray-600 hover:text-gray-900">
                         Profile
+                      </Link>
+                      <Link to="/settings" className="text-gray-600 hover:text-gray-900">
+                        Settings
                       </Link>
                     </>
                   )}
@@ -131,6 +135,10 @@ function App() {
             <Route 
               path="/profile" 
               element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/settings" 
+              element={isAuthenticated ? <SettingsPage /> : <Navigate to="/login" />} 
             />
           </Routes>
         </main>
