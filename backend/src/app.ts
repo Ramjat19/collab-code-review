@@ -1,4 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
+import cookieParser from 'cookie-parser';
 import { createServer } from "http";
 import cors from "cors";
 import { 
@@ -30,6 +34,8 @@ export function createApp() {
   app.use(helmetConfig); // Security headers
   app.use(securityHeaders); // Additional custom security headers
   app.use(corsConfig); // CORS policy
+  // Cookie parser (needed for refresh token cookie parsing)
+  app.use(cookieParser());
   app.use(requestSizeLimiter); // Request size limiting
   // Note: Rate limiting now applied per-route for better control
   
