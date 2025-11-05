@@ -1,9 +1,11 @@
 import { useState } from "react";
-import API from "../api";
+import { useNavigate } from "react-router-dom";
+import API, { setAuthToken } from "../api";
 
 export default function Signup() {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -12,8 +14,17 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await API.post("/auth/signup", form);
-      setMessage("Signup successful! You can login now.");
+      const res = await API.post("/auth/signup", form);
+      const { token, expiresIn } = res.data;
+      if (token) {
+        setAuthToken(token, expiresIn); // Store token and schedule proactive refresh
+        setMessage("Signup successful! Redirecting...");
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 1000);
+      } else {
+        setMessage("Signup successful! You can login now.");
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setMessage(error.response?.data?.message || "Error signing up");

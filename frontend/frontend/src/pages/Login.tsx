@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../api";
+import API, { setAuthToken } from "../api";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -15,7 +15,8 @@ export default function Login() {
     e.preventDefault();
     try {
       const res = await API.post("/auth/login", form);
-      localStorage.setItem("token", res.data.token);
+      const { token, expiresIn } = res.data;
+      setAuthToken(token, expiresIn); // Store token and schedule proactive refresh
       setMessage("Login successful!");
       // Redirect to dashboard after successful login
       setTimeout(() => {

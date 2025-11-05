@@ -14,6 +14,7 @@ import SettingsPage from './pages/SettingsPage';
 import NotificationBell from './components/NotificationBell';
 import { ErrorProvider } from './contexts/ErrorContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import API, { clearAuthToken } from './api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -78,10 +79,18 @@ function App() {
                 <div className="flex items-center space-x-4">
                   <NotificationBell />
                   <button
-                    onClick={() => {
-                      localStorage.removeItem('token');
-                      setIsAuthenticated(false);
-                      window.location.href = '/login';
+                    onClick={async () => {
+                      try {
+                        // Call backend logout endpoint to revoke refresh token
+                        await API.post('/auth/logout');
+                      } catch (err) {
+                        console.error('Logout error:', err);
+                      } finally {
+                        // Clear local auth state regardless of backend response
+                        clearAuthToken();
+                        setIsAuthenticated(false);
+                        window.location.href = '/login';
+                      }
                     }}
                     className="text-gray-600 hover:text-gray-900"
                   >

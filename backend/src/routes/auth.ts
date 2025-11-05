@@ -2,12 +2,37 @@ import { Router, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from 'crypto';
 import authMiddleware, { AuthRequest } from "../middleware/auth";
 import { validateLogin, validateSignup } from "../middleware/validation";
-import { authLimiter } from "../middleware/security";
+import { authLimiter, refreshLimiter } from "../middleware/security";
 import { validateSecureStrings, logSecurityEvent } from "../utils/security";
+import RefreshToken from "../models/RefreshToken";
 
 const router = Router();
+
+// Refresh token settings
+const REFRESH_TOKEN_EXPIRES_DAYS = parseInt(process.env.REFRESH_TOKEN_DAYS || '7', 10);
+const REFRESH_TOKEN_EXPIRES_MS = REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000;
+const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'refreshToken';
+// Access token settings (shorter lifetime for better security)
+const ACCESS_TOKEN_EXPIRES = process.env.ACCESS_TOKEN_EXPIRES || '15m'; // default 15 minutes
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'none' as 'none' | 'lax' | 'strict',
+  path: '/',
+  maxAge: REFRESH_TOKEN_EXPIRES_MS
+};
+
+function generateRefreshToken() {
+  return crypto.randomBytes(64).toString('hex');
+}
+
+function hashToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 // Register
 router.post("/signup", authLimiter, validateSignup, async (req: AuthRequest, res: Response) => {
@@ -43,13 +68,33 @@ router.post("/signup", authLimiter, validateSignup, async (req: AuthRequest, res
     // Log successful registration (without sensitive data)
     console.log(`New user registered: ${username} (${email})`);
 
+    // Issue JWT and refresh token on signup
+    const token = jwt.sign(
+      { id: newUser._id, email: newUser.email, username: newUser.username },
+      (process.env.JWT_SECRET as any),
+      ({ expiresIn: ACCESS_TOKEN_EXPIRES, issuer: 'collab-code-review', audience: 'collab-code-review-users' } as any)
+    );
+
+    const refreshTokenPlain = generateRefreshToken();
+    const refreshTokenHash = hashToken(refreshTokenPlain);
+    const refreshTokenDoc = new RefreshToken({
+      user: newUser._id,
+      tokenHash: refreshTokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRES_MS),
+      createdByIp: req.ip
+    });
+    await refreshTokenDoc.save();
+    res.cookie(REFRESH_COOKIE_NAME, refreshTokenPlain, cookieOptions);
+
     res.status(201).json({ 
       message: "User registered successfully",
+      token,
       user: {
         id: newUser._id,
         username: newUser.username,
         email: newUser.email
-      }
+      },
+        expiresIn: ACCESS_TOKEN_EXPIRES
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -98,19 +143,24 @@ router.post("/login", authLimiter, validateLogin, async (req: AuthRequest, res: 
 
     // Generate JWT with stronger settings
     const token = jwt.sign(
-      { 
-        id: user._id, 
-        email: user.email, 
-        username: user.username,
-        iat: Math.floor(Date.now() / 1000)
-      },
-      process.env.JWT_SECRET as string,
-      { 
-        expiresIn: "24h",
-        issuer: "collab-code-review",
-        audience: "collab-code-review-users"
-      }
+        { id: user._id, email: user.email, username: user.username },
+      (process.env.JWT_SECRET as any),
+        ({ expiresIn: ACCESS_TOKEN_EXPIRES, issuer: 'collab-code-review', audience: 'collab-code-review-users' } as any)
     );
+
+    // Create refresh token (rotate on login)
+    const refreshTokenPlain = generateRefreshToken();
+    const refreshTokenHash = hashToken(refreshTokenPlain);
+    const refreshTokenDoc = new RefreshToken({
+      user: user._id,
+      tokenHash: refreshTokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRES_MS),
+      createdByIp: req.ip
+    });
+    await refreshTokenDoc.save();
+
+    // Set refresh token cookie (HttpOnly + Secure in production)
+    res.cookie(REFRESH_COOKIE_NAME, refreshTokenPlain, cookieOptions);
 
     // Log successful login
     console.log(`Successful login: ${user.username} from IP: ${req.ip}`);
@@ -123,7 +173,7 @@ router.post("/login", authLimiter, validateLogin, async (req: AuthRequest, res: 
         username: user.username,
         email: user.email
       },
-      expiresIn: "24h"
+        expiresIn: ACCESS_TOKEN_EXPIRES
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -143,6 +193,94 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
+  }
+});
+
+// Refresh access token (rotate refresh token)
+router.post('/refresh', refreshLimiter, async (req: AuthRequest, res: Response) => {
+  try {
+    const token = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (!token || typeof token !== 'string') {
+      return res.status(401).json({ error: 'No refresh token provided' });
+    }
+
+    const tokenHash = hashToken(token);
+    const existing = await RefreshToken.findOne({ tokenHash });
+    if (!existing) {
+      logSecurityEvent('INVALID_REFRESH_TOKEN', 'Refresh token not found in DB', req);
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    if (existing.revoked) {
+      // Possible token reuse - revoke all user's refresh tokens
+      await RefreshToken.updateMany({ user: existing.user }, { revoked: true, revokedAt: new Date() });
+      logSecurityEvent('REUSED_REFRESH_TOKEN', `Revoked all tokens for user ${existing.user}`, req);
+      return res.status(401).json({ error: 'Refresh token revoked' });
+    }
+
+    if (existing.expiresAt < new Date()) {
+      return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    // Rotate: create new refresh token, revoke old
+    const newTokenPlain = generateRefreshToken();
+    const newTokenHash = hashToken(newTokenPlain);
+
+    const newTokenDoc = new RefreshToken({
+      user: existing.user,
+      tokenHash: newTokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRES_MS),
+      createdByIp: req.ip
+    });
+    await newTokenDoc.save();
+
+    existing.revoked = true;
+    existing.revokedAt = new Date();
+  existing.revokedByIp = (req.ip as string) || 'unknown';
+    existing.replacedByToken = newTokenHash;
+    await existing.save();
+
+    // Issue new access token
+    const user = await User.findById(existing.user);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    const accessToken = jwt.sign(
+      { id: user._id, email: user.email, username: user.username },
+      (process.env.JWT_SECRET as any),
+      ({ expiresIn: ACCESS_TOKEN_EXPIRES, issuer: 'collab-code-review', audience: 'collab-code-review-users' } as any)
+    );
+
+    // Set cookie with new refresh token
+    res.cookie(REFRESH_COOKIE_NAME, newTokenPlain, cookieOptions);
+
+  res.json({ message: 'Token refreshed', token: accessToken, expiresIn: ACCESS_TOKEN_EXPIRES });
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    res.status(500).json({ error: 'Unable to refresh token' });
+  }
+});
+
+// Logout - revoke refresh token and clear cookie
+router.post('/logout', refreshLimiter, authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const token = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (token && typeof token === 'string') {
+      const tokenHash = hashToken(token);
+      const existing = await RefreshToken.findOne({ tokenHash });
+      if (existing) {
+        existing.revoked = true;
+        existing.revokedAt = new Date();
+  existing.revokedByIp = (req.ip as string) || 'unknown';
+        await existing.save();
+      }
+    }
+
+    // Clear cookie
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' });
+    res.json({ message: 'Logged out' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ error: 'Unable to logout' });
   }
 });
 
