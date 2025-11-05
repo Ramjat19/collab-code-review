@@ -105,6 +105,12 @@ export const authLimiter = createRateLimit(
   'Too many authentication attempts, please try again later'
 );
 
+export const refreshLimiter = createRateLimit(
+  15 * 60 * 1000, // 15 minutes
+  30, // 30 refresh attempts per window
+  'Too many token refresh attempts, please try again later'
+);
+
 export const generalLimiter = createRateLimit(
   15 * 60 * 1000, // 15 minutes
   500, // 500 requests per window (increased for better UX)
@@ -201,4 +207,57 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
   next();
+};
+
+// CSRF Protection via Origin/Referer Validation (defense in depth with SameSite cookies)
+export const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
+  // Skip CSRF for GET, HEAD, OPTIONS (safe methods)
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+
+  // Get origin or referer
+  const origin = req.get('origin');
+  const referer = req.get('referer');
+  
+  // In development, be more lenient
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+
+  // Build allowed origins
+  const envList = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://collab-code-review.vercel.app',
+    'https://collab-code-review-ram-prasads-projects-12031425.vercel.app',
+    ...envList
+  ];
+
+  // Check origin
+  if (origin) {
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed) ||
+                     /https?:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
+    if (isAllowed) {
+      return next();
+    }
+  }
+
+  // Check referer as fallback
+  if (referer) {
+    const isAllowed = allowedOrigins.some(allowed => referer.startsWith(allowed)) ||
+                     /https?:\/\/[a-z0-9-]+\.vercel\.app/i.test(referer);
+    if (isAllowed) {
+      return next();
+    }
+  }
+
+  // If no origin/referer or they don't match, reject
+  console.warn(`CSRF protection blocked request from origin: ${origin}, referer: ${referer}`);
+  res.status(403).json({ error: 'CSRF validation failed' });
 };

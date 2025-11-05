@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import crypto from 'crypto';
 import authMiddleware, { AuthRequest } from "../middleware/auth";
 import { validateLogin, validateSignup } from "../middleware/validation";
-import { authLimiter } from "../middleware/security";
+import { authLimiter, refreshLimiter } from "../middleware/security";
 import { validateSecureStrings, logSecurityEvent } from "../utils/security";
 import RefreshToken from "../models/RefreshToken";
 
@@ -197,7 +197,7 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
 });
 
 // Refresh access token (rotate refresh token)
-router.post('/refresh', async (req: AuthRequest, res: Response) => {
+router.post('/refresh', refreshLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const token = req.cookies?.[REFRESH_COOKIE_NAME];
     if (!token || typeof token !== 'string') {
@@ -261,7 +261,7 @@ router.post('/refresh', async (req: AuthRequest, res: Response) => {
 });
 
 // Logout - revoke refresh token and clear cookie
-router.post('/logout', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/logout', refreshLimiter, authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const token = req.cookies?.[REFRESH_COOKIE_NAME];
     if (token && typeof token === 'string') {
