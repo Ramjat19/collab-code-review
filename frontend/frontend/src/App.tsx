@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { initializeCsrf } from './api';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import SimpleHome from './pages/SimpleHome';
 import Dashboard from './pages/Dashboard';
@@ -35,6 +36,11 @@ function App() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
+  }, []);
+
+  useEffect(() => {
+    // Initialize CSRF token on app mount
+    initializeCsrf();
   }, []);
 
   return (

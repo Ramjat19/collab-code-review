@@ -52,7 +52,8 @@ export const corsConfig = cors({
     'Accept',
     'Authorization',
     'Cache-Control',
-    'X-HTTP-Method-Override'
+    'X-HTTP-Method-Override',
+    'x-csrf-token'
   ],
   maxAge: 86400 // Cache preflight for 24 hours
 });
