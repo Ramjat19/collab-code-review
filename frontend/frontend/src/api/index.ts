@@ -8,6 +8,73 @@ const API = axios.create({
   withCredentials: true, // Send cookies (refresh token) with requests
 });
 
+// Track CSRF token
+let csrfToken: string | null = null;
+
+// Fetch CSRF token on app initialization
+export async function initializeCsrf(): Promise<void> {
+  try {
+    const response = await axios.get(
+      `${import.meta.env.VITE_BASE_API}/api/csrf-token`,
+      { withCredentials: true }
+    );
+    csrfToken = response.data.csrfToken;
+    console.log('[CSRF] Token fetched successfully');
+  } catch (error) {
+    console.error('[CSRF] Failed to fetch token:', error);
+  }
+}
+
+// Request interceptor: Add CSRF token to state-changing requests
+API.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    // Add JWT token if available
+    const token = localStorage.getItem("token");
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Add CSRF token to POST/PUT/PATCH/DELETE requests
+    if (csrfToken && ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
+      config.headers = config.headers || {};
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor: Handle CSRF token expiry/invalidation
+API.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // Handle CSRF token errors (403 with EBADCSRFTOKEN)
+    if (error.response?.status === 403 && !originalRequest._retry) {
+      const errorData = error.response.data as any;
+      if (errorData?.error === 'Invalid CSRF token') {
+        console.log('[CSRF] Token invalid, refetching...');
+        originalRequest._retry = true;
+        
+        // Refetch CSRF token
+        await initializeCsrf();
+        
+        // Retry original request with new token
+        if (csrfToken) {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers['X-CSRF-Token'] = csrfToken;
+          return API(originalRequest);
+        }
+      }
+    }
+
+    // ... existing 401 refresh token logic
+    return Promise.reject(error);
+  }
+);
+
 // Track token expiry for proactive refresh
 let tokenExpiryTime: number | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -55,10 +122,14 @@ function scheduleTokenRefresh() {
 // Helper to refresh access token using refresh token cookie
 async function refreshAccessToken(): Promise<string> {
   try {
+    // Use raw axios but manually include CSRF token to avoid interceptor loops
     const response = await axios.post(
       `${import.meta.env.VITE_BASE_API}/api/auth/refresh`,
       {},
-      { withCredentials: true }
+      { 
+        withCredentials: true,
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
+      }
     );
     
     const { token, expiresIn } = response.data;

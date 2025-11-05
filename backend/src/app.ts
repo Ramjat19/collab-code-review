@@ -8,12 +8,11 @@ import cors from "cors";
 import { 
   corsConfig, 
   helmetConfig, 
-  generalLimiter, 
-  speedLimiter, 
+  generalLimiter,
   securityHeaders, 
-  requestSizeLimiter,
-  csrfProtection
+  requestSizeLimiter
 } from "./middleware/security";
+import { csrfProtection, csrfErrorHandler } from "./middleware/csrf";
 import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import projectRoutes from "./routes/project";
@@ -53,6 +52,12 @@ export function createApp() {
   app.get("/", (req, res) => {
     res.json({ message: "Welcome to Collab Code Review API", status: "running" });
   });
+
+  // Add endpoint to get CSRF token (global for all routes)
+  app.get("/api/csrf-token", (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+  });
+  
   
   app.use("/health", healthRoutes);
   app.use("/api/auth", authRoutes);
@@ -62,6 +67,9 @@ export function createApp() {
   app.use("/api/notifications", generalLimiter, notificationRoutes);
   app.use("/api/users", generalLimiter, userRoutes);
   app.use("/api/branch-protection", branchProtectionRoutes);
+
+  // CSRF error handler
+  app.use(csrfErrorHandler);
 
   return { app, server, socketService };
 }
