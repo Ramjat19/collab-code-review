@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Room from '../models/Room';
+import logger from '../utils/logger';
 
 export interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -50,7 +51,7 @@ class SocketService {
           if (allowedOrigins.indexOf(origin) !== -1 || allowedRegex.some(r => r.test(origin))) {
             return callback(null, true);
           }
-          console.warn(`Socket.IO CORS blocked origin: ${origin}`);
+          logger.warn('Socket.IO CORS blocked origin', { origin });
           return callback(new Error('Not allowed by CORS'));
         },
         methods: ["GET", "POST"],
@@ -84,7 +85,11 @@ class SocketService {
 
   private setupEventHandlers() {
     this.io.on('connection', (socket: AuthenticatedSocket) => {
-      console.log(`User ${socket.username} connected with socket ID: ${socket.id}`);
+      logger.info('User connected via Socket.IO', {
+        userId: socket.userId,
+        username: socket.username,
+        socketId: socket.id,
+      });
       
       if (socket.userId) {
         this.connectedUsers.set(socket.userId, socket);
@@ -113,7 +118,12 @@ class SocketService {
           
           await room.save();
           
-          console.log(`${socket.username} joined PR room: ${roomId}`);
+          logger.info('User joined PR room', {
+            username: socket.username,
+            userId: socket.userId,
+            roomId,
+            pullRequestId: data.pullRequestId,
+          });
           
           // Notify others in the room
           socket.to(roomId).emit('user-joined-room', {
@@ -135,7 +145,11 @@ class SocketService {
           });
 
         } catch (error) {
-          console.error('Error joining PR room:', error);
+          logger.error('Error joining PR room', {
+            error: error instanceof Error ? error.message : String(error),
+            username: socket.username,
+            pullRequestId: data.pullRequestId,
+          });
           socket.emit('error', { message: 'Failed to join PR room' });
         }
       });
@@ -151,7 +165,11 @@ class SocketService {
           username: socket.username
         });
         
-        console.log(`${socket.username} left PR room: ${roomId}`);
+        logger.info('User left PR room', {
+          username: socket.username,
+          roomId,
+          pullRequestId: data.pullRequestId,
+        });
       });
 
       // Handle new comments
@@ -174,7 +192,12 @@ class SocketService {
           }
         });
         
-        console.log(`New comment from ${socket.username} in PR ${data.pullRequestId}`);
+        logger.info('New comment in PR', {
+          username: socket.username,
+          pullRequestId: data.pullRequestId,
+          hasLineNumber: !!data.lineNumber,
+          hasFileId: !!data.fileId,
+        });
       });
 
       // Handle comment updates/edits
@@ -252,7 +275,11 @@ class SocketService {
 
       // Handle disconnection
       socket.on('disconnect', () => {
-        console.log(`User ${socket.username} disconnected`);
+        logger.info('User disconnected from Socket.IO', {
+          username: socket.username,
+          userId: socket.userId,
+          socketId: socket.id,
+        });
         
         if (socket.userId) {
           this.connectedUsers.delete(socket.userId);
@@ -278,9 +305,9 @@ class SocketService {
     const userSocket = this.connectedUsers.get(userId);
     if (userSocket) {
       userSocket.emit('notification', notification);
-      console.log(`Notification sent to user ${userId}`);
+      logger.debug('Notification sent to connected user', { userId });
     } else {
-      console.log(`User ${userId} is not connected, notification stored for later`);
+      logger.debug('User not connected, notification stored for later', { userId });
     }
   }
 

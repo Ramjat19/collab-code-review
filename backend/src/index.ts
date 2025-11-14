@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import connectDB from "./config/db";
 import { createApp } from "./app";
+import logger from "./utils/logger";
 
 dotenv.config();
 
@@ -22,6 +23,24 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 4000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Socket.IO server ready for connections`);
+  logger.info(`Server running on http://localhost:${PORT}`);
+  logger.info(`Socket.IO server ready for connections`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
 });

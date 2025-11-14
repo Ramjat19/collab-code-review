@@ -1,11 +1,18 @@
 import mongoose from "mongoose";
+import logger from "../utils/logger";
 
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI as string);
-    console.log("✅ MongoDB connected");
+    logger.info("MongoDB connected", {
+      host: mongoose.connection.host,
+      database: mongoose.connection.name,
+    });
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error);
+    logger.error("MongoDB connection failed", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     process.exit(1);
   }
 };
