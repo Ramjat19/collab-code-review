@@ -5,6 +5,7 @@ import express from "express";
 import cookieParser from 'cookie-parser';
 import { createServer } from "http";
 import cors from "cors";
+import logger from "./utils/logger";
 import { 
   corsConfig, 
   helmetConfig, 
@@ -13,6 +14,7 @@ import {
   requestSizeLimiter
 } from "./middleware/security";
 import { csrfProtection, csrfErrorHandler } from "./middleware/csrf";
+import { requestLogger, errorLogger, notFoundLogger, performanceLogger } from "./middleware/logging";
 import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import projectRoutes from "./routes/project";
@@ -29,6 +31,10 @@ export function createApp() {
 
   // Initialize Socket.IO service
   const socketService = new SocketService(server);
+
+  // Logging Middleware (early in the chain)
+  app.use(requestLogger);
+  app.use(performanceLogger(1000)); // Log requests taking > 1 second
 
   // Security Middleware (order matters!)
   app.use(helmetConfig); // Security headers
@@ -68,8 +74,20 @@ export function createApp() {
   app.use("/api/users", generalLimiter, userRoutes);
   app.use("/api/branch-protection", branchProtectionRoutes);
 
+  // 404 handler
+  app.use(notFoundLogger);
+
+  // Error logging middleware (before error handlers)
+  app.use(errorLogger);
+
   // CSRF error handler
   app.use(csrfErrorHandler);
+
+  // Log application start
+  logger.info('Application initialized', {
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT || 5000,
+  });
 
   return { app, server, socketService };
 }

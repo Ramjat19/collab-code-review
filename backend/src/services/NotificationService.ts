@@ -1,5 +1,6 @@
 import Notification, { INotification } from '../models/Notification';
 import { Types } from 'mongoose';
+import logger from '../utils/logger';
 
 export class NotificationService {
   
@@ -36,10 +37,18 @@ export class NotificationService {
         });
       }
       
-      console.log(`Notification created and sent to user ${data.recipient}`);
+      logger.info('Notification created and sent', {
+        notificationId: notification._id,
+        recipient: data.recipient,
+        type: data.type,
+      });
       return notification;
     } catch (error) {
-      console.error('Error creating notification:', error);
+      logger.error('Error creating notification', {
+        error: error instanceof Error ? error.message : String(error),
+        recipient: data.recipient,
+        type: data.type,
+      });
       throw error;
     }
   }
