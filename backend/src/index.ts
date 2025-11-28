@@ -1,9 +1,13 @@
 import dotenv from "dotenv";
+dotenv.config();
+
+// Initialize Sentry FIRST
+import { initializeSentry } from "./config/sentry";
+initializeSentry();
+
 import connectDB from "./config/db";
 import { createApp } from "./app";
 import logger from "./utils/logger";
-
-dotenv.config();
 
 connectDB();
 
@@ -26,6 +30,10 @@ server.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`);
   logger.info(`Socket.IO server ready for connections`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  //log to console in case Winston console transport is disabled
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown

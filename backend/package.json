@@ -20,6 +20,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@sentry/node": "^10.25.0",
+    "@sentry/profiling-node": "^10.25.0",
     "@types/express-validator": "^2.20.33",
     "@types/socket.io": "^3.0.1",
     "bcryptjs": "^3.0.2",

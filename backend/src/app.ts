@@ -5,6 +5,7 @@ import express from "express";
 import cookieParser from 'cookie-parser';
 import { createServer } from "http";
 import cors from "cors";
+import * as Sentry from '@sentry/node';
 import logger from "./utils/logger";
 import { 
   corsConfig, 
@@ -15,6 +16,12 @@ import {
 } from "./middleware/security";
 import { csrfProtection, csrfErrorHandler } from "./middleware/csrf";
 import { requestLogger, errorLogger, notFoundLogger, performanceLogger } from "./middleware/logging";
+import {
+  sentryUserContext,
+  sentryRequestContext,
+  sentryErrorHandler,
+  sentryPerformanceMonitoring
+} from "./middleware/sentry";
 import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import projectRoutes from "./routes/project";
@@ -23,6 +30,7 @@ import pullRequestRoutes from "./routes/pullRequest";
 import notificationRoutes from "./routes/notification";
 import userRoutes from "./routes/user";
 import branchProtectionRoutes from "./routes/branchProtection";
+import testSentryRoutes from "./routes/test-sentry";
 import SocketService from "./services/SocketService";
 
 export function createApp() {
@@ -35,6 +43,7 @@ export function createApp() {
   // Logging Middleware (early in the chain)
   app.use(requestLogger);
   app.use(performanceLogger(1000)); // Log requests taking > 1 second
+  app.use(sentryPerformanceMonitoring(3000)); // Track slow requests > 3s for Sentry
 
   // Security Middleware (order matters!)
   app.use(helmetConfig); // Security headers
@@ -53,6 +62,10 @@ export function createApp() {
   
   // Trust proxy for accurate IP addresses (important for rate limiting)
   app.set('trust proxy', 1);
+
+  // Sentry context middleware (after body parsing, before routes)
+  app.use(sentryRequestContext);
+  app.use(sentryUserContext); // Will add user context if authenticated
 
   // Routes
   app.get("/", (req, res) => {
@@ -73,9 +86,13 @@ export function createApp() {
   app.use("/api/notifications", generalLimiter, notificationRoutes);
   app.use("/api/users", generalLimiter, userRoutes);
   app.use("/api/branch-protection", branchProtectionRoutes);
+  app.use("/api/test-sentry", testSentryRoutes); // Test Sentry integration
 
   // 404 handler
   app.use(notFoundLogger);
+
+  // Sentry Error Handler - MUST be before other error handlers
+  app.use(sentryErrorHandler);
 
   // Error logging middleware (before error handlers)
   app.use(errorLogger);
